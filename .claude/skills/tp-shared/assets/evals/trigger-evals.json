@@ -1,0 +1,378 @@
+{
+  "version": "1.0",
+  "description": "tp-* skills trigger & overlap eval set",
+  "created": "2026-04-01",
+  "skills": [
+    "tp-check", "tp-code-verify", "tp-create", "tp-daily-check", "tp-edit",
+    "tp-patch", "tp-quality-rules", "tp-rebuild", "tp-request",
+    "tp-search-strategies", "tp-team", "tp-ux-verify"
+  ],
+  "evals": [
+    {
+      "id": "T01",
+      "type": "should_trigger",
+      "query": "/tp-check okinawa-trip-2026-Ray",
+      "expected_skill": "tp-check",
+      "lang": "mixed"
+    },
+    {
+      "id": "T02",
+      "type": "should_trigger",
+      "query": "驗證沖繩行程的品質",
+      "expected_skill": "tp-check",
+      "lang": "zh"
+    },
+    {
+      "id": "T03",
+      "type": "should_trigger",
+      "query": "check trip quality rules",
+      "expected_skill": "tp-check",
+      "lang": "en"
+    },
+    {
+      "id": "T04",
+      "type": "should_trigger",
+      "query": "行程有沒有符合 R0-R18",
+      "expected_skill": "tp-check",
+      "lang": "zh"
+    },
+    {
+      "id": "T05",
+      "type": "near_miss",
+      "query": "修正沖繩行程的品質問題",
+      "expected_skill": "tp-rebuild",
+      "not_skill": "tp-check",
+      "note": "tp-check 是 read-only，修正走 tp-rebuild"
+    },
+    {
+      "id": "T06",
+      "type": "should_trigger",
+      "query": "/tp-code-verify",
+      "expected_skill": "tp-code-verify",
+      "lang": "en"
+    },
+    {
+      "id": "T07",
+      "type": "should_trigger",
+      "query": "commit 前跑一下檢查",
+      "expected_skill": "tp-code-verify",
+      "lang": "zh"
+    },
+    {
+      "id": "T08",
+      "type": "should_trigger",
+      "query": "檢查命名規範和測試",
+      "expected_skill": "tp-code-verify",
+      "lang": "zh"
+    },
+    {
+      "id": "T09",
+      "type": "near_miss",
+      "query": "檢查 CSS 有沒有符合 HIG",
+      "expected_skill": "tp-code-verify",
+      "note": "tp-ux-verify 是 reference，tp-code-verify 負責執行 HIG 檢查"
+    },
+    {
+      "id": "T10",
+      "type": "should_trigger",
+      "query": "/tp-create 釜山五日自由行",
+      "expected_skill": "tp-create",
+      "lang": "mixed"
+    },
+    {
+      "id": "T11",
+      "type": "should_trigger",
+      "query": "幫我建一個新的沖繩行程",
+      "expected_skill": "tp-create",
+      "lang": "zh"
+    },
+    {
+      "id": "T12",
+      "type": "should_trigger",
+      "query": "create a new trip to Okinawa",
+      "expected_skill": "tp-create",
+      "lang": "en"
+    },
+    {
+      "id": "T13",
+      "type": "near_miss",
+      "query": "幫我改沖繩行程的 Day 3",
+      "expected_skill": "tp-edit",
+      "not_skill": "tp-create",
+      "note": "修改 ≠ 建立"
+    },
+    {
+      "id": "T14",
+      "type": "should_trigger",
+      "query": "/tp-edit okinawa-trip-2026-Ray Day 3 午餐換成拉麵",
+      "expected_skill": "tp-edit",
+      "lang": "mixed"
+    },
+    {
+      "id": "T15",
+      "type": "should_trigger",
+      "query": "把沖繩行程第二天的景點加一個水族館",
+      "expected_skill": "tp-edit",
+      "lang": "zh"
+    },
+    {
+      "id": "T16",
+      "type": "should_trigger",
+      "query": "swap the Day 2 lunch restaurant",
+      "expected_skill": "tp-edit",
+      "lang": "en"
+    },
+    {
+      "id": "T17",
+      "type": "overlap",
+      "query": "幫我處理旅伴的行程修改請求",
+      "candidates": ["tp-edit", "tp-request"],
+      "expected_skill": "tp-request",
+      "note": "有「旅伴」「請求」關鍵字走 tp-request"
+    },
+    {
+      "id": "T18",
+      "type": "should_trigger",
+      "query": "/tp-rebuild okinawa-trip-2026-Ray",
+      "expected_skill": "tp-rebuild",
+      "lang": "mixed"
+    },
+    {
+      "id": "T19",
+      "type": "should_trigger",
+      "query": "重整沖繩行程的品質",
+      "expected_skill": "tp-rebuild",
+      "lang": "zh"
+    },
+    {
+      "id": "T20",
+      "type": "should_trigger",
+      "query": "fix all quality violations in the trip",
+      "expected_skill": "tp-rebuild",
+      "lang": "en"
+    },
+    {
+      "id": "T21",
+      "type": "should_trigger",
+      "query": "重整所有行程",
+      "expected_skill": "tp-rebuild",
+      "lang": "zh",
+      "note": "使用 /tp-rebuild --all"
+    },
+    {
+      "id": "T22",
+      "type": "should_trigger",
+      "query": "/tp-rebuild --all",
+      "expected_skill": "tp-rebuild",
+      "lang": "en"
+    },
+    {
+      "id": "T24",
+      "type": "should_trigger",
+      "query": "/tp-patch --target hotel --field rating",
+      "expected_skill": "tp-patch",
+      "lang": "en"
+    },
+    {
+      "id": "T25",
+      "type": "should_trigger",
+      "query": "補齊所有飯店的評分",
+      "expected_skill": "tp-patch",
+      "lang": "zh"
+    },
+    {
+      "id": "T26",
+      "type": "should_trigger",
+      "query": "bulk fill missing POI phone numbers",
+      "expected_skill": "tp-patch",
+      "lang": "en"
+    },
+    {
+      "id": "T27",
+      "type": "near_miss",
+      "query": "幫沖繩行程的一間飯店補電話",
+      "expected_skill": "tp-edit",
+      "not_skill": "tp-patch",
+      "note": "單一 POI 修改走 tp-edit，批次走 tp-patch"
+    },
+    {
+      "id": "T28",
+      "type": "should_trigger",
+      "query": "/tp-request",
+      "expected_skill": "tp-request",
+      "lang": "en"
+    },
+    {
+      "id": "T29",
+      "type": "should_trigger",
+      "query": "處理待處理的旅伴請求",
+      "expected_skill": "tp-request",
+      "lang": "zh"
+    },
+    {
+      "id": "T30",
+      "type": "should_trigger",
+      "query": "process companion trip requests",
+      "expected_skill": "tp-request",
+      "lang": "en"
+    },
+    {
+      "id": "T31",
+      "type": "should_trigger",
+      "query": "/tp-daily-check",
+      "expected_skill": "tp-daily-check",
+      "lang": "en"
+    },
+    {
+      "id": "T32",
+      "type": "should_trigger",
+      "query": "跑每日健康檢查",
+      "expected_skill": "tp-daily-check",
+      "lang": "zh"
+    },
+    {
+      "id": "T33",
+      "type": "near_miss",
+      "query": "檢查行程有沒有問題",
+      "candidates": ["tp-check", "tp-daily-check"],
+      "expected_skill": "tp-check",
+      "note": "無「每日」「排程」關鍵字預設走 tp-check"
+    },
+    {
+      "id": "T34",
+      "type": "should_trigger",
+      "query": "改 TripPage 的 component",
+      "expected_skill": "tp-team",
+      "lang": "zh"
+    },
+    {
+      "id": "T35",
+      "type": "should_trigger",
+      "query": "fix the bug in useTrip hook",
+      "expected_skill": "tp-team",
+      "lang": "en"
+    },
+    {
+      "id": "T36",
+      "type": "should_trigger",
+      "query": "加一個新功能到 ManagePage",
+      "expected_skill": "tp-team",
+      "lang": "zh"
+    },
+    {
+      "id": "T37",
+      "type": "overlap",
+      "query": "改 code 然後 commit",
+      "candidates": ["tp-team", "tp-code-verify"],
+      "expected_skill": "tp-team",
+      "note": "改 code 走 tp-team pipeline，tp-code-verify 在 Review 階段被觸發"
+    },
+    {
+      "id": "T38",
+      "type": "should_not_trigger",
+      "query": "今天天氣怎麼樣",
+      "expected_skill": null,
+      "note": "與行程/程式碼無關"
+    },
+    {
+      "id": "T39",
+      "type": "should_not_trigger",
+      "query": "幫我寫一封 email",
+      "expected_skill": null,
+      "note": "與行程/程式碼無關"
+    },
+    {
+      "id": "T40",
+      "type": "overlap",
+      "query": "修正沖繩行程 Day 2 午餐評分缺漏",
+      "candidates": ["tp-edit", "tp-patch", "tp-rebuild"],
+      "expected_skill": "tp-edit",
+      "note": "指定單一天的特定修改走 tp-edit"
+    },
+    {
+      "id": "T41",
+      "type": "overlap",
+      "query": "所有行程的飯店都缺 google_rating，幫我補",
+      "candidates": ["tp-patch", "tp-rebuild"],
+      "expected_skill": "tp-patch",
+      "note": "跨行程特定欄位補齊走 tp-patch"
+    },
+    {
+      "id": "T42",
+      "type": "near_miss",
+      "query": "查一下這間餐廳的 Google 評分",
+      "expected_skill": "tp-patch",
+      "not_skill": "tp-search-strategies",
+      "note": "tp-search-strategies 是 non-invocable reference，單一 POI 評分查詢走 tp-edit 或 tp-patch"
+    },
+    {
+      "id": "T43",
+      "type": "near_miss",
+      "query": "重構 API handler 的錯誤處理",
+      "expected_skill": "tp-team",
+      "not_skill": "tp-code-verify",
+      "note": "重構是 code change，走 tp-team pipeline"
+    },
+    {
+      "id": "T44",
+      "type": "near_miss",
+      "query": "行程品質規則 R12 怎麼定義的",
+      "expected_skill": "tp-quality-rules",
+      "not_skill": "tp-check",
+      "note": "查規則定義走 reference，執行驗證走 tp-check"
+    },
+    {
+      "id": "T45",
+      "type": "overlap",
+      "query": "幫我 deploy",
+      "candidates": ["tp-team"],
+      "expected_skill": "tp-team",
+      "note": "deploy 走 tp-team Ship 階段 (/ship → /land-and-deploy)"
+    }
+  ],
+  "overlap_matrix": {
+    "description": "容易混淆的 skill pairs + 判斷依據",
+    "pairs": [
+      {
+        "skills": ["tp-check", "tp-rebuild"],
+        "boundary": "tp-check 只讀不改（驗證），tp-rebuild 讀+改（修復）",
+        "trigger_words": {
+          "tp-check": ["驗證", "檢查", "check", "validate", "report"],
+          "tp-rebuild": ["修正", "修復", "重整", "fix", "rebuild", "repair"]
+        }
+      },
+      {
+        "skills": ["tp-edit", "tp-request"],
+        "boundary": "tp-edit 由 Key User 直接下指令，tp-request 處理旅伴透過 D1 API 送出的請求",
+        "trigger_words": {
+          "tp-edit": ["改", "換", "加", "刪", "swap", "add", "remove"],
+          "tp-request": ["請求", "旅伴", "request", "companion", "處理待處理"]
+        }
+      },
+      {
+        "skills": ["tp-edit", "tp-patch"],
+        "boundary": "tp-edit 改單一行程的任意內容，tp-patch 跨行程批次補特定欄位",
+        "trigger_words": {
+          "tp-edit": ["Day N", "某天", "某個景點", "局部"],
+          "tp-patch": ["批次", "所有", "跨行程", "bulk", "--target", "--field"]
+        }
+      },
+      {
+        "skills": ["tp-team", "tp-code-verify"],
+        "boundary": "tp-team 是完整 7 階段 pipeline，tp-code-verify 是 Review 階段的子步驟",
+        "trigger_words": {
+          "tp-team": ["改 code", "新功能", "bug fix", "重構", "feature"],
+          "tp-code-verify": ["commit 前", "tsc", "npm test", "命名規範"]
+        }
+      },
+      {
+        "skills": ["tp-check", "tp-daily-check"],
+        "boundary": "tp-check 手動驗證特定行程，tp-daily-check 排程自動掃描全部 + Telegram 通知",
+        "trigger_words": {
+          "tp-check": ["驗證", "這個行程", "指定 tripId"],
+          "tp-daily-check": ["每日", "排程", "daily", "Telegram", "健康檢查"]
+        }
+      }
+    ]
+  }
+}
