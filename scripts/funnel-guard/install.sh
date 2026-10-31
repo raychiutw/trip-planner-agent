@@ -12,7 +12,7 @@
 
 set -eo pipefail
 
-REPO_ROOT="/Users/ray/Projects/trip-planner"
+REPO_ROOT="/Users/ray/Projects/trip-planner-agent"
 PLIST_NAME="com.tripline.funnel-guard.plist"
 SRC_PLIST="$REPO_ROOT/scripts/$PLIST_NAME"
 DST_PLIST="$HOME/Library/LaunchAgents/$PLIST_NAME"

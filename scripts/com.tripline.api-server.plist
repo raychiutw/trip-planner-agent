@@ -8,10 +8,10 @@
     <array>
         <string>/opt/homebrew/bin/bun</string>
         <string>run</string>
-        <string>/Users/ray/Projects/trip-planner/scripts/tripline-api-server.ts</string>
+        <string>/Users/ray/Projects/trip-planner-agent/scripts/tripline-api-server.ts</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/ray/Projects/trip-planner</string>
+    <string>/Users/ray/Projects/trip-planner-agent</string>
     <key>RunAtLoad</key>
     <true/>
     <!-- v2.33.52 cleanup (round 8d defer): SuccessfulExit=false 避免 controlled
@@ -29,8 +29,8 @@
         <string>/opt/homebrew/bin:/Users/ray/.bun/bin:/usr/local/bin:/usr/bin:/bin</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/ray/Projects/trip-planner/scripts/logs/api-server/stdout.log</string>
+    <string>/Users/ray/Projects/trip-planner-agent/scripts/logs/api-server/stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/ray/Projects/trip-planner/scripts/logs/api-server/stderr.log</string>
+    <string>/Users/ray/Projects/trip-planner-agent/scripts/logs/api-server/stderr.log</string>
 </dict>
 </plist>
