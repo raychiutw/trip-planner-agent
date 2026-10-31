@@ -1,0 +1,36 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tripline.api-server</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/opt/homebrew/bin/bun</string>
+        <string>run</string>
+        <string>/Users/ray/Projects/trip-planner/scripts/tripline-api-server.ts</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/ray/Projects/trip-planner</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <!-- v2.33.52 cleanup (round 8d defer): SuccessfulExit=false 避免 controlled
+         process.exit(0) 也 respawn；ThrottleInterval 10s 防 panic loop hot-spin。 -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/Users/ray/.bun/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/ray/Projects/trip-planner/scripts/logs/api-server/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/ray/Projects/trip-planner/scripts/logs/api-server/stderr.log</string>
+</dict>
+</plist>

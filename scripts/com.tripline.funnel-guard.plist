@@ -1,0 +1,37 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.tripline.funnel-guard</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/bin/zsh</string>
+        <string>/Users/ray/Projects/trip-planner/scripts/funnel-guard/guard.sh</string>
+    </array>
+    <key>WorkingDirectory</key>
+    <string>/Users/ray/Projects/trip-planner</string>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>StartInterval</key>
+    <integer>120</integer>
+    <!-- 對齊 api-server plist：SuccessfulExit=false 避免 controlled exit(0) 也 respawn；
+         ThrottleInterval 10s 防 panic loop hot-spin。 -->
+    <key>KeepAlive</key>
+    <dict>
+        <key>SuccessfulExit</key>
+        <false/>
+    </dict>
+    <key>ThrottleInterval</key>
+    <integer>10</integer>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
+    </dict>
+    <key>StandardOutPath</key>
+    <string>/Users/ray/Projects/trip-planner/scripts/logs/funnel-guard/stdout.log</string>
+    <key>StandardErrorPath</key>
+    <string>/Users/ray/Projects/trip-planner/scripts/logs/funnel-guard/stderr.log</string>
+</dict>
+</plist>
