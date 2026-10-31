@@ -18,5 +18,7 @@ jobs:
         with:
           node-version: 26
           cache: npm
+      # 部分腳本的 shebang 是 zsh（跑在 macOS），runner 預設沒裝
+      - run: sudo apt-get update -qq && sudo apt-get install -y -qq zsh
       - run: npm ci
       - run: npm test
