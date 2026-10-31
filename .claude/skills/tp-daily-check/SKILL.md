@@ -12,7 +12,7 @@ user-invocable: true
 - Name: Tripline Daily Check
 - Prompt: `/tp-daily-check`
 - Frequency: Daily
-- Working folder: `/Users/ray/Projects/trip-planner`
+- Working folder: `/Users/ray/Projects/trip-planner-agent`
 
 v2.30.x Cowork migration 前的 launchd `daily-check-scheduler.sh` + `claude -p` 已移除。Cowork 跑在 user session 內，auth 直接繼承無 keychain isolation 問題。
 
@@ -21,7 +21,7 @@ v2.30.x Cowork migration 前的 launchd `daily-check-scheduler.sh` + `claude -p`
 ### Phase 1: 產出報告 JSON
 
 ```bash
-cd /Users/ray/Projects/trip-planner
+cd /Users/ray/Projects/trip-planner-agent
 
 # load .env.local 拿 CLOUDFLARE_API_TOKEN / SENTRY_AUTH_TOKEN 等 secret
 eval "$(node scripts/lib/load-env.mjs .env.local)"

@@ -193,7 +193,7 @@ describe('probe seam 與端到端接線（2026-09-04 codex + testing 稽核）',
 describe('外部輸入硬化（2026-09-05 red team）', () => {
   it('REPO_ROOT 預設從腳本自身路徑推導，不再硬編碼', () => {
     expect(GUARD).toContain('REPO_ROOT="${REPO_ROOT:-$(cd "$(dirname "${(%):-%x}")/../.." && pwd)}"');
-    expect(GUARD).not.toContain('REPO_ROOT="/Users/ray/Projects/trip-planner"');
+    expect(GUARD).not.toContain('REPO_ROOT="/Users/ray/Projects/trip-planner-agent"');
   });
 
   it('被 source 時不開 errexit — 測試 harness 要 bad() 聚合而非直接終止', () => {

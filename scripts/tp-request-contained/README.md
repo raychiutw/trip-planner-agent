@@ -38,8 +38,8 @@ echo 'ray ALL=(tp-agent) NOPASSWD: ALL' | sudo tee /etc/sudoers.d/tp-agent >/dev
 sudo chmod 440 /etc/sudoers.d/tp-agent && sudo visudo -cf /etc/sudoers.d/tp-agent   # 驗語法
 
 # 3. tp-agent 可讀 repo（skill + MCP server）但不可寫；憑證不可被 other 讀
-sudo chmod -R o+rX /Users/ray/Projects/trip-planner
-chmod 600 /Users/ray/Projects/trip-planner/.env.local
+sudo chmod -R o+rX /Users/ray/Projects/trip-planner-agent
+chmod 600 /Users/ray/Projects/trip-planner-agent/.env.local
 # ~/.tripline 由 seed（activation 步驟 2）建立；先 mkdir 鎖 700，token 一落地即隔離
 mkdir -p /Users/ray/.tripline && chmod 700 /Users/ray/.tripline
 
@@ -52,10 +52,10 @@ claude setup-token
 
 # 5. 驗證（先確認 sudo 通，test 的 exit code 才反映「真的讀不讀得到」）
 sudo -n -u tp-agent true && echo "① sudo OK"
-sudo -n -u tp-agent test -r /Users/ray/Projects/trip-planner/scripts/tp-request-mcp-server.js && echo "② repo 讀取 OK"
-sudo -n -u tp-agent test -r /Users/ray/Projects/trip-planner/.env.local && echo "③ ⚠️外洩" || echo "③ .env.local 隔離 OK"
+sudo -n -u tp-agent test -r /Users/ray/Projects/trip-planner-agent/scripts/tp-request-mcp-server.js && echo "② repo 讀取 OK"
+sudo -n -u tp-agent test -r /Users/ray/Projects/trip-planner-agent/.env.local && echo "③ ⚠️外洩" || echo "③ .env.local 隔離 OK"
 sudo -n -u tp-agent test -r /Users/ray/.tripline && echo "④ ⚠️外洩" || echo "④ ~/.tripline 隔離 OK"
-grep -q '^CLAUDE_CODE_OAUTH_TOKEN=' /Users/ray/Projects/trip-planner/.env.local && echo "⑤ OAuth token OK" || echo "⑤ ⚠️缺 OAuth token"
+grep -q '^CLAUDE_CODE_OAUTH_TOKEN=' /Users/ray/Projects/trip-planner-agent/.env.local && echo "⑤ OAuth token OK" || echo "⑤ ⚠️缺 OAuth token"
 ```
 
 在這步做完之前，api-server 一律 **fail-closed**：mint 或隔離檢查失敗就不啟動 `/tp-request`，並發 alert。沒有 service token 降級路徑。隔離暫時未就緒保留 pending request，下一輪可再試。

@@ -81,14 +81,14 @@ tailscale serve status --json | jq '.AllowFunnel'
 安全事件時若需要把 `:443` 拉下線（`tailscale funnel --https=443 off` 或改 serve-only），先建 kill-switch 防止 guard 把它推回來：
 
 ```bash
-touch /Users/ray/Projects/trip-planner/scripts/funnel-guard/.disabled
+touch /Users/ray/Projects/trip-planner-agent/scripts/funnel-guard/.disabled
 # 之後 guard 每次 tick 都 skip
 ```
 
 恢復：
 
 ```bash
-rm /Users/ray/Projects/trip-planner/scripts/funnel-guard/.disabled
+rm /Users/ray/Projects/trip-planner-agent/scripts/funnel-guard/.disabled
 ```
 
 > `.disabled` 在 `.gitignore`，不會被誤 commit。

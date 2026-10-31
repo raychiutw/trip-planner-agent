@@ -7,10 +7,10 @@
     <key>ProgramArguments</key>
     <array>
         <string>/bin/zsh</string>
-        <string>/Users/ray/Projects/trip-planner/scripts/funnel-guard/guard.sh</string>
+        <string>/Users/ray/Projects/trip-planner-agent/scripts/funnel-guard/guard.sh</string>
     </array>
     <key>WorkingDirectory</key>
-    <string>/Users/ray/Projects/trip-planner</string>
+    <string>/Users/ray/Projects/trip-planner-agent</string>
     <key>RunAtLoad</key>
     <true/>
     <key>StartInterval</key>
@@ -30,8 +30,8 @@
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin</string>
     </dict>
     <key>StandardOutPath</key>
-    <string>/Users/ray/Projects/trip-planner/scripts/logs/funnel-guard/stdout.log</string>
+    <string>/Users/ray/Projects/trip-planner-agent/scripts/logs/funnel-guard/stdout.log</string>
     <key>StandardErrorPath</key>
-    <string>/Users/ray/Projects/trip-planner/scripts/logs/funnel-guard/stderr.log</string>
+    <string>/Users/ray/Projects/trip-planner-agent/scripts/logs/funnel-guard/stderr.log</string>
 </dict>
 </plist>

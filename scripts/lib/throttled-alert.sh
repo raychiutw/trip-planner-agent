@@ -26,7 +26,7 @@
 : "${THROTTLED_ALERT_DEFAULT_TTL:=3600}"
 # send-telegram.sh 路徑 — caller 應設 THROTTLED_ALERT_SEND_TELEGRAM 環境變數
 # (放棄 zsh ${(%):-%x} magic：top-level 不可靠；explicit 較穩)
-: "${THROTTLED_ALERT_SEND_TELEGRAM:=/Users/ray/Projects/trip-planner/scripts/lib/send-telegram.sh}"
+: "${THROTTLED_ALERT_SEND_TELEGRAM:=/Users/ray/Projects/trip-planner-agent/scripts/lib/send-telegram.sh}"
 
 _throttled_alert_state_file() {
   local key="$1"

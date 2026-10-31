@@ -86,7 +86,7 @@ API 設定、呼叫格式、Windows encoding 注意事項見 tp-shared/reference
 - Name: Tripline Request Processor
 - Prompt: `/tp-request`
 - Frequency: Hourly
-- Working folder: `/Users/ray/Projects/trip-planner`
+- Working folder: `/Users/ray/Projects/trip-planner-agent`
 
 v2.30.x Cowork migration 前的 launchd `tp-request-scheduler.sh` + `claude -p` 已移除。Cowork 跑在 user session 內、auth 自動繼承，無 keychain isolation 問題。**Latency 從 15 min 降到 hourly** — 緊急請求需 user 手動跑 `/tp-request`。
 
@@ -94,7 +94,7 @@ v2.30.x Cowork migration 前的 launchd `tp-request-scheduler.sh` + `claude -p` 
 
 skill 跑時需要 env vars（從 `.env.local` 載入）：
 ```bash
-cd /Users/ray/Projects/trip-planner
+cd /Users/ray/Projects/trip-planner-agent
 eval "$(node scripts/lib/load-env.mjs .env.local)"
 ```
 
