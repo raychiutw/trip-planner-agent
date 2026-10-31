@@ -31,6 +31,8 @@ import {
   superviseRun, PRINT_RUN_TIMEOUT_MS, PRINT_KILL_GRACE_MS, PRINT_HARD_DEADLINE_MS, PRINT_LOG_MAX_BYTES, PRINT_RAW_MAX_BYTES,
 } from './lib/print-run';
 import envLoader from './lib/load-env.js';
+import { createAgentHandler } from './lib/agent-http';
+import { parseKeyList } from './lib/request-signing';
 
 // --- Load .env.local ---
 // 全 repo 唯一的 parser：scripts/lib/load-env.js（已存在的 env 優先、不覆蓋）。
@@ -392,26 +394,6 @@ async function processLoop(source: 'api' | 'job', skillCommand: string = '/tp-re
   return (await worker.tick(source, skillCommand)) === 'spawned';
 }
 
-function constantTimeEqual(a: string, b: string): boolean {
-  if (a.length !== b.length) return false;
-  const aBuf = new TextEncoder().encode(a);
-  const bBuf = new TextEncoder().encode(b);
-  let diff = 0;
-  for (let i = 0; i < aBuf.length; i++) {
-    diff |= aBuf[i]! ^ bBuf[i]!;
-  }
-  return diff === 0;
-}
-
-function verifyAuth(req: Request): boolean {
-  if (!API_SECRET) {
-    logError('WARNING: TRIPLINE_API_SECRET not set — rejecting all requests');
-    return false;
-  }
-  const authHeader = req.headers.get('Authorization') || '';
-  return constantTimeEqual(authHeader, `Bearer ${API_SECRET}`);
-}
-
 // --- Mailer (lazy SMTP transporter + handler) ---
 let mailTransporter: Transporter | null = null;
 function getMailTransporter(): Transporter {
@@ -430,7 +412,8 @@ function getMailTransporter(): Transporter {
 }
 
 const mailHandler = makeMailHandler({
-  verifyAuth,
+  // 認證已在 agentHandler 入口完成（簽章或舊 secret），這裡不重複檢查
+  verifyAuth: () => true,
   transporter: getMailTransporter,
   emailFrom: EMAIL_FROM_DEFAULT,
   log,
@@ -459,50 +442,56 @@ const mailHandler = makeMailHandler({
   },
 });
 
+// T17：HTTP 入口抽到 lib/agent-http.ts（可對 handler 直接發 Request 測試）。
+// 認證在入口一律先做：帶簽章 header 只看簽章；沒帶才在 allowLegacy 路由試舊 TRIPLINE_API_SECRET（T21 移除）。
+const agentHandler = createAgentHandler({
+  legacySecret: API_SECRET,
+  signing: {
+    keys: {
+      trigger: parseKeyList(process.env.TRIPLINE_SIGNING_KEYS_TRIGGER),
+      mail: parseKeyList(process.env.TRIPLINE_SIGNING_KEYS_MAIL),
+      mint: parseKeyList(process.env.TRIPLINE_SIGNING_KEYS_MINT),
+    },
+    windowSec: process.env.TRIPLINE_SIGNING_WINDOW_SEC ? Number(process.env.TRIPLINE_SIGNING_WINDOW_SEC) : undefined,
+  },
+  health: () => ({
+    // v2.33.27: running 改報 array — backward-compat boolean 也保留
+    ...worker.status(),
+    uptime: process.uptime(),
+  }),
+  routes: [
+    {
+      method: 'POST', path: '/trigger', purpose: 'trigger', allowLegacy: true,
+      handle: (req) => {
+        const url = new URL(req.url);
+        const source = (url.searchParams.get('source') === 'job' ? 'job' : 'api') as 'api' | 'job';
+
+        // /trigger 預設跑 /tp-request；per-skill lock 只擋同 skill
+        if (worker.isRunning('/tp-request')) {
+          return Response.json({ already_running: true });
+        }
+
+        // 非同步啟動，立即回傳
+        processLoop(source).catch((err) => {
+          logError(`processLoop unhandled: ${err}`);
+        });
+
+        return Response.json({ triggered: true, source });
+      },
+    },
+    { method: 'POST', path: '/internal/mail/send', purpose: 'mail', allowLegacy: true, handle: (req) => mailHandler(req) },
+  ],
+  log,
+  logError,
+});
+
+if (!API_SECRET && !process.env.TRIPLINE_SIGNING_KEYS_TRIGGER && !process.env.TRIPLINE_SIGNING_KEYS_MAIL) {
+  logError('WARNING: TRIPLINE_API_SECRET 與簽章 key 都沒設定 — 所有需認證的請求都會被拒絕');
+}
+
 Bun.serve({
   port: PORT,
-  async fetch(req) {
-    const url = new URL(req.url);
-
-    // CORS for health check
-    if (req.method === 'OPTIONS') {
-      return new Response(null, { status: 204, headers: { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Methods': 'GET, POST', 'Access-Control-Allow-Headers': 'Authorization, Content-Type' } });
-    }
-
-    if (url.pathname === '/health' && req.method === 'GET') {
-      return Response.json({
-        // v2.33.27: running 改報 array — backward-compat boolean 也保留
-        ...worker.status(),
-        uptime: process.uptime(),
-      });
-    }
-
-    if (url.pathname === '/trigger' && req.method === 'POST') {
-      if (!verifyAuth(req)) {
-        return Response.json({ error: 'unauthorized' }, { status: 401 });
-      }
-
-      const source = (url.searchParams.get('source') === 'job' ? 'job' : 'api') as 'api' | 'job';
-
-      // /trigger 預設跑 /tp-request；per-skill lock 只擋同 skill
-      if (worker.isRunning('/tp-request')) {
-        return Response.json({ already_running: true });
-      }
-
-      // 非同步啟動，立即回傳
-      processLoop(source).catch((err) => {
-        logError(`processLoop unhandled: ${err}`);
-      });
-
-      return Response.json({ triggered: true, source });
-    }
-
-    if (url.pathname === '/internal/mail/send' && req.method === 'POST') {
-      return await mailHandler(req);
-    }
-
-    return Response.json({ error: 'not found' }, { status: 404 });
-  },
+  fetch: agentHandler,
 });
 
 // listen 成功之後才清掃：port 被別的實例佔著時（EADDRINUSE）自己會先失敗，不會去殺對方進行中的 run。
