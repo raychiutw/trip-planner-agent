@@ -4,7 +4,8 @@
   "private": true,
   "description": "Tripline 的本機 agent：api-server、tp-request 排程、每日健檢、funnel guard",
   "scripts": {
-    "test": "vitest run"
+    "test": "vitest run",
+    "refresh:google": "bun scripts/google-poi-refresh-30d.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.9",
