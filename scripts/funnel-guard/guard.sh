@@ -283,6 +283,8 @@ is_funnel_healthy() {
 heal_funnel() {
   log "drift 偵測：執行 reset + funnel 重設"
   ts_run serve reset 2>&1 | sed "s/^/$LOG_PREFIX  /" || true
+  # serve reset 會清掉同機 allymote 的 tailnet-only :8443（手機 App 入口）→ 補回；失敗不影響 funnel heal
+  ts_run serve --bg --https=8443 http://127.0.0.1:8765 2>&1 | sed "s/^/$LOG_PREFIX  /" || true
   ts_run funnel --bg --https=443 "$EXPECTED_PROXY" 2>&1 | sed "s/^/$LOG_PREFIX  /"
 }
 
