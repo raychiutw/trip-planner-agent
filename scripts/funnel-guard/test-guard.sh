@@ -335,6 +335,8 @@ done
 _rc=$(_run_main Running)
 if grep -q '^serve reset' "$_fake/calls" && grep -q '^funnel ' "$_fake/calls"; then ok "Running + drift 仍自動 heal（既有保護沒被削弱）"; else bad "Running + drift 沒有 heal — 短路過寬"; fi
 if grep -q '^needs_login|' "$_fake/alerts"; then bad "Running 被誤報成 needs_login"; else ok "Running 不發 needs_login"; fi
+# heal 的 serve reset 會清掉所有規則，包括 allymote 的 tailnet-only 8443（2026-11-07 手機連不到）→ heal 要一併補回
+if grep -q '^serve --bg --https=8443 http://127.0.0.1:8765' "$_fake/calls"; then ok "heal 後補回 allymote 的 :8443（serve reset 不再害手機斷線）"; else bad "heal 沒補回 :8443 — serve reset 會清掉 allymote 的 tailnet 轉發"; fi
 # tailscale_up_hint 的邊界：prefs 讀不到／沒有旗標時給裸指令，且在真實執行的 set -eo pipefail 下不能讓提示變空
 # （Red Team 抓到：debug prefs 非 0 離開會讓告警變成「請執行 `` 」）。
 # 注意：必須先把輸出存進變數再比對——放在 `[ "$(...)" = ... ] && ok || bad` 這種條件式裡，errexit 會被忽略，
