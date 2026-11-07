@@ -10,7 +10,8 @@
 import { failPendingRequests, type ReapReason } from './fail-pending-requests';
 import { waitForRepl, submitSkillCommand, type TmuxDeps } from './tmux-pane';
 
-export interface PendingRequest { requestId: string; tripId: string }
+/** createdAt：API（deepCamel）回的 D1 `datetime('now')`，格式 `YYYY-MM-DD HH:MM:SS`，UTC 無時區；缺漏時省略。 */
+export interface PendingRequest { requestId: string; tripId: string; createdAt?: string }
 export interface AcquiredToken { token: string; restrictTrip?: string; /** mint 時 peek 到的那筆請求（contained 路徑用來保底收屍）。 */ requestId?: string }
 export type TickResult = 'spawned' | 'busy' | 'idle' | 'failed';
 /**
@@ -41,6 +42,8 @@ export interface WorkerDeps {
   log: (msg: string) => void;
   logError: (msg: string) => void;
   alert: (key: string, state: 'healthy' | 'failed', message: string) => void;
+  /** 請求停滯告警門檻（毫秒）；省略用 DEFAULT_STALL_THRESHOLD_MS。 */
+  stallThresholdMs?: number;
   containmentReady: () => boolean;
   createPlainSession: (sessionName: string, skillCommand: string, token: string) => Promise<boolean>;
   pane: Pick<TmuxDeps, 'capture' | 'sendKeys'>;
@@ -62,6 +65,24 @@ export const QUEUE_FETCH_TIMEOUT_MS = 15_000;
 
 /** print 模式同一行程連續處理的輪數上限（每輪處理完仍有新請求才會再跑）。 */
 export const PRINT_MAX_ROUNDS = 3;
+
+export const STALL_ALERT_KEY = 'request-stall';
+/**
+ * 20 分鐘：正常處理 1～5 分鐘，筆記工作 10 分鐘就會被收屍；超過 20 分鐘還在隊列代表 worker 沒在處理，
+ * 不是「慢」。production 曾出現 58～660 分鐘的長尾，要在 100 分鐘牆鐘兜底之前就知道。
+ */
+export const DEFAULT_STALL_THRESHOLD_MS = 20 * 60 * 1000;
+
+/** 環境變數（分鐘）→ 毫秒；缺漏或非正有限數一律退回預設，避免壞設定把告警默默關掉。 */
+export function parseStallThresholdMs(raw: string | undefined): number {
+  const minutes = Number(raw);
+  return raw && Number.isFinite(minutes) && minutes > 0 ? minutes * 60_000 : DEFAULT_STALL_THRESHOLD_MS;
+}
+
+/** SQLite 時間字串（無時區）當 UTC 解析；ISO 帶時區者照舊。解析不了回 NaN。 */
+function parseCreatedAtMs(createdAt: string): number {
+  return Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(createdAt) ? createdAt : `${createdAt.replace(' ', 'T')}Z`);
+}
 
 export function assertAllowedSkill(skillCommand: string): string {
   if (!ALLOWED_SKILLS.has(skillCommand)) {
@@ -85,26 +106,63 @@ export function createRequestWorker(deps: WorkerDeps) {
   let lastProcessed: string | null = null;
   let processedCount = 0;
 
+  /** 某狀態最舊的一筆；查不到（非 2xx、拋錯）回 'error'，沒有回 null。只取 id／tripId／createdAt，不碰使用者內容。 */
+  async function firstPending(svcToken: string, status: 'processing' | 'open'): Promise<PendingRequest | null | 'error'> {
+    try {
+      const res = await deps.fetch(`${deps.apiBase}/api/requests?status=${status}&sort=asc&limit=1`, {
+        headers: { Authorization: `Bearer ${svcToken}` },
+        signal: AbortSignal.timeout(QUEUE_FETCH_TIMEOUT_MS),
+      });
+      if (!res.ok) return 'error';
+      const data = ((await res.json().catch(() => null)) ?? {}) as { items?: Array<{ id?: unknown; tripId?: unknown; createdAt?: unknown }> };
+      const item = data.items?.[0];
+      const rawId = item?.id;
+      const tripId = item?.tripId;
+      const requestId = typeof rawId === 'number' ? String(rawId) : typeof rawId === 'string' ? rawId : '';
+      if (requestId && typeof tripId === 'string' && tripId) {
+        return { requestId, tripId, ...(typeof item?.createdAt === 'string' ? { createdAt: item.createdAt } : {}) };
+      }
+      return null;
+    } catch {
+      return 'error';
+    }
+  }
+
   async function peekPendingRequest(): Promise<PendingRequest | null> {
     const svcToken = await deps.getServiceToken();
     for (const status of ['processing', 'open'] as const) {
-      try {
-        const res = await deps.fetch(`${deps.apiBase}/api/requests?status=${status}&sort=asc&limit=1`, {
-          headers: { Authorization: `Bearer ${svcToken}` },
-          signal: AbortSignal.timeout(QUEUE_FETCH_TIMEOUT_MS),
-        });
-        if (!res.ok) continue;
-        const data = ((await res.json().catch(() => null)) ?? {}) as { items?: Array<{ id?: unknown; tripId?: unknown }> };
-        const item = data.items?.[0];
-        const rawId = item?.id;
-        const tripId = item?.tripId;
-        const requestId = typeof rawId === 'number' ? String(rawId) : typeof rawId === 'string' ? rawId : '';
-        if (requestId && typeof tripId === 'string' && tripId) return { requestId, tripId };
-      } catch {
-        /* best-effort — try next status */
-      }
+      const found = await firstPending(svcToken, status);
+      if (found && found !== 'error') return found;
     }
     return null;
+  }
+
+  let stallAlerted = false;
+  /** tick 結束後檢查最老待處理請求；只在狀態變化時 alert（failed／healthy 各一次）。查不到隊列就不動狀態。 */
+  async function checkStall(tickResult: TickResult): Promise<void> {
+    try {
+      const svc = await deps.getServiceToken();
+      const found = [await firstPending(svc, 'processing'), await firstPending(svc, 'open')];
+      let oldest: { req: PendingRequest; ms: number } | null = null;
+      for (const f of found) {
+        if (!f || f === 'error' || !f.createdAt) continue;
+        const ms = parseCreatedAtMs(f.createdAt);
+        if (Number.isFinite(ms) && (!oldest || ms < oldest.ms)) oldest = { req: f, ms };
+      }
+      if (!oldest && found.includes('error')) return;
+      const waited = oldest ? deps.clock.now() - oldest.ms : 0;
+      const stalled = oldest !== null && waited > (deps.stallThresholdMs ?? DEFAULT_STALL_THRESHOLD_MS);
+      if (stalled && !stallAlerted && oldest) {
+        stallAlerted = true;
+        deps.alert(STALL_ALERT_KEY, 'failed',
+          `請求 #${oldest.req.requestId} 已等待 ${Math.floor(waited / 60_000)} 分鐘（行程 ${oldest.req.tripId}，tick=${tickResult}）→ worker 可能停擺，查 api-server log 與 tmux／claude -p。`);
+      } else if (!stalled && stallAlerted) {
+        stallAlerted = false;
+        deps.alert(STALL_ALERT_KEY, 'healthy', '請求停滯已解除：最老的待處理請求回到門檻內或隊列已清空。');
+      }
+    } catch (err) {
+      deps.logError(`checkStall error: ${err instanceof Error ? err.message : String(err)}`);
+    }
   }
 
   async function mintRestricted(requestId: string): Promise<{ token: string; tripId: string }> {
@@ -197,6 +255,12 @@ export function createRequestWorker(deps: WorkerDeps) {
    */
   async function tick(source: 'api' | 'job', skillCommand: string = '/tp-request'): Promise<TickResult> {
     assertAllowedSkill(skillCommand);
+    const result = await runTick(source, skillCommand);
+    if (skillCommand === '/tp-request') await checkStall(result);
+    return result;
+  }
+
+  async function runTick(source: 'api' | 'job', skillCommand: string): Promise<TickResult> {
     if (runningSkills.has(skillCommand)) {
       deps.log(`processLoop: already running, skip (source=${source}, skill=${skillCommand})`);
       return 'busy';

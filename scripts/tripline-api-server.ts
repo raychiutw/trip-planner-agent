@@ -25,7 +25,7 @@ import {
   buildMcpConfig,
 } from './lib/contained-spawn';
 import { throttledAlert, sleep } from './_lib/cron-shared';
-import { createRequestWorker, type PrintRunResult } from './lib/request-worker';
+import { createRequestWorker, parseStallThresholdMs, type PrintRunResult } from './lib/request-worker';
 import { sweepStalePrintRuns } from './lib/print-run-sweep';
 import {
   superviseRun, PRINT_RUN_TIMEOUT_MS, PRINT_KILL_GRACE_MS, PRINT_HARD_DEADLINE_MS, PRINT_LOG_MAX_BYTES, PRINT_RAW_MAX_BYTES,
@@ -359,6 +359,7 @@ const worker = createRequestWorker({
   log,
   logError,
   alert: (key, state, message) => { void throttledAlert(key, state, message); },
+  stallThresholdMs: parseStallThresholdMs(process.env.REQUEST_STALL_ALERT_MINUTES),
   containmentReady,
   createPlainSession,
   runContainedPrint,
