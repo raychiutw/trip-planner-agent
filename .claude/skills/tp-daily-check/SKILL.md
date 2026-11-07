@@ -4,17 +4,11 @@ description: 每日健康檢查時使用 — 跑 daily-check.js 產出報告 →
 user-invocable: true
 ---
 
-每日健康報告 — 整合 Phase 1（產報告）+ Phase 2（資料/Code fix）+ Phase 3（Telegram）。Cowork scheduled task 每日早上自動觸發；手動觸發直接在 Claude Desktop / Code 輸入 `/tp-daily-check`。
+每日健康報告 — 整合 Phase 1（產報告）+ Phase 2（資料/Code fix）+ Phase 3（Telegram）。api-server 內建 cron 每日 06:10 自動觸發；手動觸發直接在 Claude Desktop / Code 輸入 `/tp-daily-check`。
 
 ## 排程
 
-**Cowork Scheduled task**（Claude Desktop 內建）：
-- Name: Tripline Daily Check
-- Prompt: `/tp-daily-check`
-- Frequency: Daily
-- Working folder: `~/.tripline-agent/app`
-
-v2.30.x Cowork migration 前的 launchd `daily-check-scheduler.sh` + `claude -p` 已移除。Cowork 跑在 user session 內，auth 直接繼承無 keychain isolation 問題。
+由 `scripts/tripline-api-server.ts` 內建 cron 觸發（透過 ephemeral tmux session），工作目錄是 `~/.tripline-agent/app`。不需要、也不要在 Claude Desktop 另建 scheduled task，否則會重複觸發。
 
 ## 步驟
 
@@ -58,7 +52,7 @@ echo "Report: $REPORT_JSON"
   ```
 - **「0 users」「超過 7 天」「非 code bug」不是跳過的理由** — 只要 Sentry 有 unresolved issue 就嘗試修
 - **API 4xx 必須 grep 呼叫端** — 查是哪個 script/skill 發的，auth header 有沒有帶對
-- 對每個可修 issue：開 fix branch → 在當前 session 內走 `/tp-code-verify` → `/ship` → `/land-and-deploy`（Cowork session 內全部一氣呵成，不再 spawn 新 claude process）
+- 對每個可修 issue：開 fix branch → 在當前 session 內走 `/tp-code-verify` → `/ship` → `/land-and-deploy`（當前 session 內全部一氣呵成，不再 spawn 新 claude process）
 - 修不了的必須附上「嘗試了什麼 + grep 結果 + 為什麼修不了」
 
 把修復結果寫到 `scripts/logs/daily-check/YYYY-MM-DD-fix-result.json`：
@@ -99,7 +93,7 @@ Telegram 報告格式（有問題/全綠）和 Phase A/B 修復範圍詳見 `ref
 
 ## 環境需求
 
-- v2.31.3 起由 `scripts/tripline-api-server.ts` 內建 cron 在每日 09:00 透過 ephemeral tmux session 觸發（取代 Cowork）；user shell env 透過 `scripts/lib/load-env.mjs` 載入 `.env.local`
+- 由 `scripts/tripline-api-server.ts` 內建 cron 在每日 06:10 透過 ephemeral tmux session 觸發；user shell env 透過 `scripts/lib/load-env.mjs` 載入 `.env.local`
 - `.env.local` 需有：`CLOUDFLARE_API_TOKEN`、`CF_ACCOUNT_ID`、`D1_DATABASE_ID`、`SENTRY_AUTH_TOKEN`、`SENTRY_ORG`、`SENTRY_PROJECT`、`TELEGRAM_BOT_HOME_TOKEN`（或 `TELEGRAM_BOT_TOKEN`）、`TELEGRAM_CHAT_ID`
 - Code fix 需要 git / npm / 既有 skill (tp-team / ship / land-and-deploy)
 
