@@ -20,7 +20,8 @@ let runtime: string;
 let agents: string;
 
 function deploy() {
-  execFileSync('/bin/zsh', [DEPLOY], {
+  // umask 077：預設 umask 下 tar 解出來本來就可讀，測不出 chmod 有沒有作用
+  execFileSync('/bin/sh', ['-c', 'umask 077; exec /bin/zsh "$1"', '_', DEPLOY], {
     env: {
       ...process.env,
       RUNTIME_DIR: runtime,
@@ -103,7 +104,8 @@ describe('deploy.sh', () => {
     deploy();
     writeFileSync(join(runtime, '.env.local'), 'X=1\n');   // 預設 umask 644，部署要把它收成 600
     deploy();
-    expect(statSync(join(runtime, 'app/scripts/tp-request-mcp-server.js')).mode & 0o005).toBe(0o005);
+    expect(statSync(join(runtime, 'app/scripts/tp-request-mcp-server.js')).mode & 0o004).toBe(0o004);
+    expect(statSync(join(runtime, 'app/scripts')).mode & 0o005).toBe(0o005);   // 目錄要能進入
     expect(statSync(runtime).mode & 0o001).toBe(0o001);
     expect(statSync(join(runtime, '.env.local')).mode & 0o777).toBe(0o600);
   });
