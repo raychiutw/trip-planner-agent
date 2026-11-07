@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import {
-  existsSync, lstatSync, mkdtempSync, readFileSync, writeFileSync, mkdirSync, readlinkSync,
+  existsSync, lstatSync, mkdtempSync, readFileSync, statSync, writeFileSync, mkdirSync, readlinkSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -92,5 +92,33 @@ describe('deploy.sh', () => {
     writeFileSync(join(runtime, 'app/scripts/stale-leftover.sh'), '#!/bin/sh\n');
     deploy();
     expect(existsSync(join(runtime, 'app/scripts/stale-leftover.sh'))).toBe(false);
+  });
+
+  it('api-server 需要的 .claude/skills 也部署過去（contained session 從 PROJECT_DIR/.claude/skills 連結）', () => {
+    deploy();
+    expect(existsSync(join(runtime, 'app/.claude/skills/tp-request/SKILL.md'))).toBe(true);
+  });
+
+  it('app 對 other 唯讀可進入（tp-agent 要讀 skill 與 MCP server），但 .env.local 仍是 600', () => {
+    deploy();
+    writeFileSync(join(runtime, '.env.local'), 'X=1\n');   // 預設 umask 644，部署要把它收成 600
+    deploy();
+    expect(statSync(join(runtime, 'app/scripts/tp-request-mcp-server.js')).mode & 0o005).toBe(0o005);
+    expect(statSync(runtime).mode & 0o001).toBe(0o001);
+    expect(statSync(join(runtime, '.env.local')).mode & 0o777).toBe(0o600);
+  });
+});
+
+describe('throttled-alert.sh', () => {
+  it('send-telegram 預設路徑跟著 REPO_ROOT，不寫死 repo 位置', () => {
+    const src = readFileSync(join(REPO, 'scripts/lib/throttled-alert.sh'), 'utf8');
+    expect(src).not.toContain('/Users/ray/Projects/trip-planner-agent');
+    const out = execFileSync(
+      '/bin/zsh',
+      ['-c', 'REPO_ROOT=/opt/x source "$1"; printf %s "$THROTTLED_ALERT_SEND_TELEGRAM"', '_',
+        join(REPO, 'scripts/lib/throttled-alert.sh')],
+      { env: { PATH: process.env.PATH ?? '' }, encoding: 'utf8' },
+    );
+    expect(out).toBe('/opt/x/scripts/lib/send-telegram.sh');
   });
 });

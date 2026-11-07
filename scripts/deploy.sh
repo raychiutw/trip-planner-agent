@@ -34,13 +34,16 @@ mkdir -p "$RUNTIME/app" "$RUNTIME/logs"/{api-server,funnel-guard}
 rsync -a --delete \
   --exclude=/node_modules --exclude=/.env.local --exclude=/scripts/logs \
   --exclude=/scripts/funnel-guard/.disabled \
-  --exclude=/tests --exclude=/.github --exclude=/.claude \
+  --exclude=/tests --exclude=/.github \
   "$stage/" "$RUNTIME/app/"
 
 if [ ! -e "$RUNTIME/.env.local" ] && [ -f "$SRC/.env.local" ]; then
   cp "$SRC/.env.local" "$RUNTIME/.env.local"
 fi
 [ -e "$RUNTIME/.env.local" ] && chmod 600 "$RUNTIME/.env.local"
+# tp-agent（contained session 的 unix user）要讀 app 裡的 skill 與 MCP server；憑證不給 other 讀
+chmod 755 "$RUNTIME"
+chmod -R o+rX "$RUNTIME/app"
 ln -sfn ../.env.local "$RUNTIME/app/.env.local"
 ln -sfn ../../logs "$RUNTIME/app/scripts/logs"
 echo "$SHA" > "$RUNTIME/app/.deployed-ref"
