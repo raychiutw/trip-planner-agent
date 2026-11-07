@@ -20,7 +20,7 @@ Decision Rubric 之前處理：
 3. **不得直接寫入行程筆記**，也不得呼叫一般修改流程；backend completion hook
    會統一套用人工維護、排除、去重與原子替換規則。
 4. 以 `status="completed"` 更新 request，`reply` 放上述 JSON array 的序列化字串。
-   Contained 模式用 `updateRequest`；Cowork 模式沿用下方 PATCH request 流程。
+   Contained 模式用 `updateRequest`；service-token 模式沿用下方 PATCH request 流程。
 5. 完成後直接處理下一筆 request，不再進入一般 Decision Rubric。
 
 ---
@@ -29,9 +29,9 @@ Decision Rubric 之前處理：
 
 **看你的工具清單**：
 
-| 有 `mcp__tripline__*` 工具（如 `mcp__tripline__listRequests`）| → **Contained 模式**：只走下方「Contained 流程」。**忽略本檔所有 shell / curl / node / eval 指令**（那是 legacy Cowork 模式，你在 contained 模式無 Bash、無檔案讀寫、無網路，跑不了也不該跑）。 |
+| 有 `mcp__tripline__*` 工具（如 `mcp__tripline__listRequests`）| → **Contained 模式**：只走下方「Contained 流程」。**忽略本檔所有 shell / curl / node / eval 指令**（那是 legacy service-token 模式，你在 contained 模式無 Bash、無檔案讀寫、無網路，跑不了也不該跑）。 |
 |---|---|
-| 沒有 `mcp__tripline__*`，但有 Bash | → **Cowork / service-token 模式**：走本檔「## 步驟」起的既有 shell 流程。 |
+| 沒有 `mcp__tripline__*`，但有 Bash | → **service-token 模式**：走本檔「## 步驟」起的既有 shell 流程。 |
 
 Contained 模式的行程操作**只**透過 MCP 工具完成；工具本身已把 tripId 綁死、把 ❌ 操作排除、把寫入白名單 gate 在 API middleware，被 prompt injection 也越不了權。
 
@@ -82,15 +82,9 @@ API 設定、呼叫格式、Windows encoding 注意事項見 tp-shared/reference
 
 ## 觸發模式
 
-**Cowork Scheduled task**（Claude Desktop 內建）：
-- Name: Tripline Request Processor
-- Prompt: `/tp-request`
-- Frequency: Hourly
-- Working folder: `~/.tripline-agent/app`
+兩條路徑：Cloudflare Pages 送出請求時 POST `/trigger` 即時觸發（第一線）；`scripts/tripline-api-server.ts` 內建 cron 每 5 分鐘兜底。皆透過 ephemeral tmux session 在 `~/.tripline-agent/app` 執行。不需要、也不要在 Claude Desktop 另建 scheduled task，否則會重複觸發。
 
-v2.30.x Cowork migration 前的 launchd `tp-request-scheduler.sh` + `claude -p` 已移除。Cowork 跑在 user session 內、auth 自動繼承，無 keychain isolation 問題。**Latency 從 15 min 降到 hourly** — 緊急請求需 user 手動跑 `/tp-request`。
-
-## Cowork 環境準備
+## 環境準備
 
 skill 跑時需要 env vars（從 `.env.local` 載入）：
 ```bash
@@ -120,7 +114,7 @@ TRIPLINE_API_TOKEN=$(node scripts/lib/get-tripline-token.js)
 
 ## 步驟
 
-> **⚠️ 以下為 Cowork / service-token 模式（有 Bash）的 shell 流程。** Contained 模式（有 `mcp__tripline__*` 工具）請走上方「Contained 流程」，不要執行下面任何 shell 指令。
+> **⚠️ 以下為 service-token 模式（有 Bash）的 shell 流程。** Contained 模式（有 `mcp__tripline__*` 工具）請走上方「Contained 流程」，不要執行下面任何 shell 指令。
 
 > **🔒 Trip-scoped 模式（`$TRIPLINE_RESTRICT_TRIP` 有值時，v2.55.56）**
 > api-server 已把 `$TRIPLINE_API_TOKEN` 換成「只能讀寫這一個 trip」的受限 user token
@@ -356,7 +350,7 @@ skill **任何 termination path 之最後一步必跑**（含 step 2 「無待�
 ```bash
 # API server (scripts/tripline-api-server.ts) 透過 ephemeral tmux session 觸發本 skill 時
 # 會 inject TRIPLINE_TMUX_SESSION + TMUX_BIN env var。drain queue 完成後砍 session 避免 orphan。
-# Cowork 觸發時無此 env var → skip（Cowork 自管 session lifecycle）。
+# 使用者手動在 Claude Desktop / Code 跑時無此 env var → skip（該 session 由使用者自管）。
 #
 # v2.31.2: 改用 ${TMUX_BIN:-tmux} 絕對路徑避免 launchd PATH 不含 homebrew 時
 # ENOENT silent fail（v2.30.18 / v2.31.0 stuck-session incident root cause）。
