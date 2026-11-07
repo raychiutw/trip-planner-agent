@@ -47,9 +47,12 @@ Funnel 流量經 Tailscale → Caddy 轉進來，對端永遠是 loopback，真�
   Cloudflare 公告異動時手動更新。
 - **已實測（2026-11-07）**：直連 Funnel edge 公網 IP，Caddy 看到 `X-Forwarded-For` = 呼叫端真實公網 IP、`Tailscale-Funnel-Request: ?1`；
   非 Cloudflare 來源在 Caddy 層回 403。
-- **尚待實測**：Cloudflare Worker 的 `fetch()` 出口 IP 是否一定在公開網段（官方文件沒有保證）。
-  在 app 內送一則旅伴請求（會觸發 Cloudflare 端 `fetch(TRIPLINE_API_URL + '/trigger')`），確認 `/trigger` 有被處理；
-  Caddy 層被擋的請求不會進 agent log，所以症狀是請求只靠 10 分鐘 cron 兜底、Telegram 出現「即時觸發失敗」。
+- **Cloudflare 端已實測（2026-11-07）**：prod 網頁按「忘記密碼」，Cloudflare Worker 的 `fetch()` 通過 Caddy 與 agent 兩層限制，
+  agent log 出現 `mail sent: template=forgot-password`，email audit 狀態 `sent`，沒有 `ip reject`。
+  agent 因此確認吃得下 Caddy 轉來的 `<Cloudflare IP>, 127.0.0.1`。
+- **症狀對照**：Caddy 層擋掉的請求不會進 agent log，Cloudflare 端會收到 403；`530` 則是 Cloudflare 連不上來源
+  （例如 Pages 的 `TRIPLINE_API_URL` 主機名稱解析不到），與 IP 限制無關。排查時先看 D1 `audit_log`（`table_name='email'`）的 `diff_json.error`。
+  2026-10-28 起寄信與即時觸發一直 530，原因就是 Pages production 的 `TRIPLINE_API_URL` 指到解析不到的舊主機名稱，2026-11-07 已更正。
   deploy agent 之後，agent 層的拒絕會在 log 出現 `ip reject: <原因> ip=<來源>`（同一來源每分鐘一行）。
 - **回復**：Caddy 層：還原 `Caddyfile.bak-20261107` 後 `caddy reload --config /opt/homebrew/etc/Caddyfile --adapter caddyfile`
   （不要用 `caddy stop`，它會停掉線上 Caddy）。agent 層：在 `~/.tripline-agent/.env.local` 加 `TRIPLINE_IP_ALLOWLIST=off` 後重新部署（啟動 log 會警告）。
