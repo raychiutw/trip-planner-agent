@@ -514,10 +514,10 @@ log(`Tripline API Server listening on port ${PORT}`);
 // 觀察到 2026-05-07 起 cron 完全停跑，user-submitted chat 卡 open 至 11 天
 // （v2.30.18 加 15-min 內部 cron band-aid）。
 //
-// v2.31.3 廢棄 Cowork、擴成 3 schedule 主路徑：
+// v2.31.3 廢棄 Cowork，改由本檔內建 cron 觸發（時間以下方 schedule 呼叫為準）：
 // - /tp-request   每 5 分鐘（REQUEST_CRON_INTERVAL_MS；兜底；CF Pages POST 是第一線即時 trigger）
-// - /tp-daily-check 每天 09:00（每日健康報告 + 自動 fix）
-// - /tp-poi-enrich-monthly 每天 08:00（skill 內 day-1 guard，不是 1 號 noop exit）
+// - /tp-daily-check 每天 06:10（每日健康報告 + 自動 fix）
+// （原 v2.31.3 的 /tp-poi-enrich-monthly 已於 v2.31.4 移除）
 //
 // 用 setInterval + setTimeout-to-next-occurrence chain，不引 cron parser dep。
 // v2.33.27: 鎖改 per-skill — 不同 skill 不互擋。
