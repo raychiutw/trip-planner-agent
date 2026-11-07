@@ -8,6 +8,7 @@
  * - 兩者都沒有 → 401。
  */
 import { timingSafeEqual } from 'node:crypto';
+import { checkSource } from './ip-allowlist';
 import {
   createSigningVerifier, hasSigningHeaders, type SigningPurpose, type SigningVerifierConfig,
 } from './request-signing';
@@ -29,6 +30,8 @@ export interface AgentHandlerDeps {
   health: () => unknown;
   log?: (msg: string) => void;
   logError?: (msg: string) => void;
+  /** true = 只放行本機與 Cloudflare 來源（issue #12）；預設不檢查，由 server 入口明確開啟。 */
+  restrictToLocalAndCloudflare?: boolean;
 }
 
 function constantTimeEqual(a: string, b: string): boolean {
@@ -47,9 +50,26 @@ export function createAgentHandler(deps: AgentHandlerDeps) {
     return constantTimeEqual(req.headers.get('Authorization') || '', `Bearer ${deps.legacySecret}`);
   }
 
+  // 掃描流量可能很多：同一來源每分鐘最多一行，避免洗版 log。
+  const lastRejectLog = new Map<string, number>();
+  function logRejectThrottled(ip: string, msg: string) {
+    const now = Date.now();
+    if (now - (lastRejectLog.get(ip) ?? 0) < 60_000) return;
+    if (lastRejectLog.size > 1000) lastRejectLog.clear();
+    lastRejectLog.set(ip, now);
+    logError(msg);
+  }
+
   const unauthorized = () => Response.json({ error: 'unauthorized' }, { status: 401 });
 
-  return async function handle(req: Request): Promise<Response> {
+  return async function handle(req: Request, peerIp?: string): Promise<Response> {
+    if (deps.restrictToLocalAndCloudflare) {
+      const verdict = checkSource(peerIp, req.headers.get('x-forwarded-for'), req.headers.has('tailscale-funnel-request'));
+      if (!verdict.ok) {
+        logRejectThrottled(verdict.ip, `ip reject: ${verdict.reason} ip=${verdict.ip} ${req.method} ${new URL(req.url).pathname}`);
+        return Response.json({ error: 'forbidden' }, { status: 403 });
+      }
+    }
     const url = new URL(req.url);
 
     if (req.method === 'OPTIONS') {

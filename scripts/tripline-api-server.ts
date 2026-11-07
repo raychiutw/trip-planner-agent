@@ -444,7 +444,12 @@ const mailHandler = makeMailHandler({
 
 // T17：HTTP 入口抽到 lib/agent-http.ts（可對 handler 直接發 Request 測試）。
 // 認證在入口一律先做：帶簽章 header 只看簽章；沒帶才在 allowLegacy 路由試舊 TRIPLINE_API_SECRET（T21 移除）。
+// issue #12：只放行本機與 Cloudflare 來源。回復開關 TRIPLINE_IP_ALLOWLIST=off（改 .env.local 後重新部署）。
+const ipAllowlistOff = process.env.TRIPLINE_IP_ALLOWLIST === 'off';
+if (ipAllowlistOff) logError('WARNING: TRIPLINE_IP_ALLOWLIST=off — 來源 IP 限制已關閉，任何能連到 port 的來源都會進到認證');
+
 const agentHandler = createAgentHandler({
+  restrictToLocalAndCloudflare: !ipAllowlistOff,
   legacySecret: API_SECRET,
   signing: {
     keys: {
@@ -489,9 +494,11 @@ if (!API_SECRET && !process.env.TRIPLINE_SIGNING_KEYS_TRIGGER && !process.env.TR
   logError('WARNING: TRIPLINE_API_SECRET 與簽章 key 都沒設定 — 所有需認證的請求都會被拒絕');
 }
 
+// 只綁 loopback：區網與 tailnet 在 OS 層就連不到；Funnel 流量由 Tailscale → Caddy 從本機轉進來。
 Bun.serve({
+  hostname: '127.0.0.1',
   port: PORT,
-  fetch: agentHandler,
+  fetch: (req, server) => agentHandler(req, server.requestIP(req)?.address),
 });
 
 // listen 成功之後才清掃：port 被別的實例佔著時（EADDRINUSE）自己會先失敗，不會去殺對方進行中的 run。
