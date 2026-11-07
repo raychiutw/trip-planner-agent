@@ -106,6 +106,8 @@ describe('deploy.sh', () => {
     deploy();
     expect(statSync(join(runtime, 'app/scripts/tp-request-mcp-server.js')).mode & 0o004).toBe(0o004);
     expect(statSync(join(runtime, 'app/scripts')).mode & 0o005).toBe(0o005);   // 目錄要能進入
+    // app 根目錄 rsync 會帶上暫存目錄的 700：tp-agent 屬 staff 群組，group 位元是 --- 就會被擋在外面（other 不會被看）
+    expect(statSync(join(runtime, 'app')).mode & 0o055).toBe(0o055);
     expect(statSync(runtime).mode & 0o001).toBe(0o001);
     expect(statSync(join(runtime, '.env.local')).mode & 0o777).toBe(0o600);
   });

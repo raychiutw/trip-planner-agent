@@ -43,7 +43,7 @@ fi
 [ -e "$RUNTIME/.env.local" ] && chmod 600 "$RUNTIME/.env.local"
 # tp-agent（contained session 的 unix user）要讀 app 裡的 skill 與 MCP server；憑證不給 other 讀
 chmod 755 "$RUNTIME"
-chmod -R o+rX "$RUNTIME/app"
+chmod -R go+rX "$RUNTIME/app"
 ln -sfn ../.env.local "$RUNTIME/app/.env.local"
 ln -sfn ../../logs "$RUNTIME/app/scripts/logs"
 echo "$SHA" > "$RUNTIME/app/.deployed-ref"
