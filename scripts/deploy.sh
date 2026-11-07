@@ -55,7 +55,8 @@ for job in $JOBS; do
   dst="$AGENTS/$job.plist"
   rm -f "$dst"   # 舊版是 symlink 回 repo；不先刪，下面的寫入會穿過去改到 repo 的範本
   sed "s#__RUNTIME__#$RUNTIME#g" "$stage/scripts/$job.plist" > "$dst"
-  plutil -lint "$dst" >/dev/null
+  # plutil 只有 macOS 有（CI 跑在 Linux 上只驗到佔位符被替換）
+  ! command -v plutil >/dev/null || plutil -lint "$dst" >/dev/null
 done
 
 if [ -z "$NO_LAUNCHCTL" ]; then
