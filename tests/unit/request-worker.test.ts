@@ -5,8 +5,9 @@
 import { describe, it, expect, vi } from 'vitest';
 import { createRequestWorker, sessionPrefixForSkill, getKnownSessionPrefixes, ORPHAN_MAX_AGE_MS, type WorkerDeps } from '../../scripts/lib/request-worker';
 // 與 web／api 判定請求逾時的門檻（trip-planner 的 functions/api/_requestTermination.ts 的 REQUEST_STALE_MINUTES）相同。
-// 這是跨專案的不變量：worker 的總執行時間必須小於它。agent repo 看不到那份檔案，所以在這裡以常數鏡射；
-// 兩邊改動時要同步（目前沒有自動守衛，見 PR 內文）。
+// 跨專案不變量：worker 的總執行時間必須小於它。這裡的鏡射只做本地檢查；真正的跨 repo 守衛在 api repo：
+// ORPHAN_MAX_AGE_MS 會經 contract/api-contract.json（limits）快照過去，由 api 的 tests/agent-contract 對真正的
+// REQUEST_STALE_MINUTES 驗證。改任一邊都要照 export-api-contract.ts 檔頭的流程同步。
 const REQUEST_STALE_MINUTES = 100;
 
 function jsonRes(status: number, body: unknown): Response {

@@ -5,6 +5,7 @@
  */
 import { describe, it, expect } from 'vitest';
 import { readFileSync } from 'node:fs';
+import { ORPHAN_MAX_AGE_MS } from '../../scripts/lib/request-worker';
 import { buildApiContract, serializeContract, CONTRACT_PATH } from '../../scripts/export-api-contract';
 
 describe('agent ↔ api 契約快照', () => {
@@ -21,5 +22,11 @@ describe('agent ↔ api 契約快照', () => {
     expect(c.dailyCheckSql.every((s) => s.sql.length > 0)).toBe(true);
     expect(c.companionTools.length).toBeGreaterThanOrEqual(10);
     expect(c.companionTools.every((t) => t.method && t.path.startsWith('/api/'))).toBe(true);
+  });
+
+  // api 端的契約測試用這個值對 REQUEST_STALE_MINUTES 驗「worker 總時長 < api 判定逾時」（agent issue #5 第 5 項）
+  it('快照帶出 worker 最長執行時間，且直接取自 request-worker 的常數', async () => {
+    const c = await buildApiContract();
+    expect(c.limits.requestWorkerMaxMinutes).toBe(ORPHAN_MAX_AGE_MS / 60_000);
   });
 });
