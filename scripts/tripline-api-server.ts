@@ -515,7 +515,7 @@ log(`Tripline API Server listening on port ${PORT}`);
 // （v2.30.18 加 15-min 內部 cron band-aid）。
 //
 // v2.31.3 廢棄 Cowork、擴成 3 schedule 主路徑：
-// - /tp-request   每 30 分鐘（兜底；CF Pages POST 是第一線即時 trigger）
+// - /tp-request   每 5 分鐘（REQUEST_CRON_INTERVAL_MS；兜底；CF Pages POST 是第一線即時 trigger）
 // - /tp-daily-check 每天 09:00（每日健康報告 + 自動 fix）
 // - /tp-poi-enrich-monthly 每天 08:00（skill 內 day-1 guard，不是 1 號 noop exit）
 //
