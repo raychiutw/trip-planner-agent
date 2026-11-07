@@ -40,6 +40,7 @@ function setup(opts: {
   const calls = { trigger: 0, mail: 0, mint: 0, mailBodies: [] as string[] };
   const logs: string[] = [];
   const handler = createAgentHandler({
+    restrictToLocalAndCloudflare: false,   // 這份測試只談簽章；來源 IP 限制見 agent-ip-allowlist.test.ts
     legacySecret: opts.legacySecret ?? LEGACY,
     signing: {
       keys: { trigger: [K_TRIGGER], mail: [K_MAIL], mint: [K_MINT], ...opts.keys },
