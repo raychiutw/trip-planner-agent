@@ -22,7 +22,10 @@ npm test
 
 ## 狀態
 
-骨架階段：程式碼與測試已獨立，**尚未切換 production**。launchd 仍指向原專案目錄；
+部署：`zsh scripts/deploy.sh` 把 `origin/main` 複製到 `~/.tripline-agent/app`，launchd（api-server、funnel-guard）只跑那份複本，
+`.env.local` 與 log 由 `~/.tripline-agent/` 自己持有，不在 git 範圍內。改程式 → 合併到 main → 跑一次 deploy.sh 才會上線。
+
+骨架階段：程式碼與測試已獨立，**尚未切換 production**。launchd 仍指向原專案目錄（跑 deploy.sh 後切到執行目錄）；
 `daily-report`、`telegram-smoke` 兩個 workflow 的 job 以 repo variable `AGENT_WORKFLOWS_ENABLED=true` 才會執行，
 設定好本 repo 的 secrets 之前保持停用。
 

@@ -33,10 +33,11 @@ macOS update / GUI app / 第三方 brew 反覆把 funnel `:443` 改成 `serve` (
 ## 安裝
 
 ```bash
-zsh scripts/funnel-guard/install.sh
+zsh scripts/deploy.sh
 ```
 
-Idempotent — 重跑會先 bootout 再 bootstrap。
+launchd 只跑 `~/.tripline-agent/app`（從 `origin/main` 複製），不跑 git 工作目錄；log 在 `~/.tripline-agent/logs/`。
+`install.sh` 只是轉呼叫 `deploy.sh`。Idempotent — 重跑會先 bootout 再 bootstrap。
 
 前置：
 - tailscale CLI 已裝（brew 版 `/opt/homebrew/bin/tailscale`、或 macOS App 版 `/usr/local/bin/tailscale`／`Tailscale.app` 內執行檔，guard 依序尋找）
@@ -50,7 +51,7 @@ Idempotent — 重跑會先 bootout 再 bootstrap。
 launchctl print gui/$(id -u)/com.tripline.funnel-guard | head -20
 
 # 即時看 log
-tail -f scripts/logs/funnel-guard/stdout.log
+tail -f ~/.tripline-agent/logs/funnel-guard/stdout.log
 
 # 手動觸發一次跑（不等 120s）
 launchctl kickstart -k gui/$(id -u)/com.tripline.funnel-guard
@@ -81,14 +82,14 @@ tailscale serve status --json | jq '.AllowFunnel'
 安全事件時若需要把 `:443` 拉下線（`tailscale funnel --https=443 off` 或改 serve-only），先建 kill-switch 防止 guard 把它推回來：
 
 ```bash
-touch /Users/ray/Projects/trip-planner-agent/scripts/funnel-guard/.disabled
+touch ~/.tripline-agent/app/scripts/funnel-guard/.disabled
 # 之後 guard 每次 tick 都 skip
 ```
 
 恢復：
 
 ```bash
-rm /Users/ray/Projects/trip-planner-agent/scripts/funnel-guard/.disabled
+rm ~/.tripline-agent/app/scripts/funnel-guard/.disabled
 ```
 
 > `.disabled` 在 `.gitignore`，不會被誤 commit。
