@@ -2,6 +2,7 @@
  * agent 的 HTTP 入口（fetch handler）。
  *
  * 從 tripline-api-server.ts 抽出來，好讓測試能對它直接發 Request（不必起 Bun.serve）。
+ * 來源限制（issue #12）：認證之前先看來源 IP，只放行本機與 Cloudflare（見 ip-allowlist.ts），其餘 403。
  * 認證規則（T17）：
  * - 請求帶任何 X-Tripline-* 簽章 header → 只看簽章（錯就 401，不會降級去試舊 Bearer）。
  * - 沒帶簽章 header → 路由 allowLegacy 才試舊 TRIPLINE_API_SECRET（Bearer）。T21 切換後移除。
@@ -30,7 +31,7 @@ export interface AgentHandlerDeps {
   health: () => unknown;
   log?: (msg: string) => void;
   logError?: (msg: string) => void;
-  /** true = 只放行本機與 Cloudflare 來源（issue #12）；預設不檢查，由 server 入口明確開啟。 */
+  /** 只放行本機與 Cloudflare 來源（issue #12）。預設啟用（fail closed）；只有明確傳 false 才關閉。 */
   restrictToLocalAndCloudflare?: boolean;
 }
 
@@ -63,7 +64,7 @@ export function createAgentHandler(deps: AgentHandlerDeps) {
   const unauthorized = () => Response.json({ error: 'unauthorized' }, { status: 401 });
 
   return async function handle(req: Request, peerIp?: string): Promise<Response> {
-    if (deps.restrictToLocalAndCloudflare) {
+    if (deps.restrictToLocalAndCloudflare !== false) {
       const verdict = checkSource(peerIp, req.headers.get('x-forwarded-for'), req.headers.has('tailscale-funnel-request'));
       if (!verdict.ok) {
         logRejectThrottled(verdict.ip, `ip reject: ${verdict.reason} ip=${verdict.ip} ${req.method} ${new URL(req.url).pathname}`);

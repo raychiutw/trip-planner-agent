@@ -186,3 +186,43 @@ describe('帶 Tailscale-Funnel-Request 的請求一定來自公網（Caddy 漏�
     expect((await call('127.0.0.1', { ...funnel, 'x-forwarded-for': '104.16.5.9, 127.0.0.1' })).status).toBe(200);
   });
 });
+
+describe('預設啟用（fail closed）', () => {
+  it('沒指定 restrictToLocalAndCloudflare 時，非 loopback 來源照樣 403', async () => {
+    const handler = createAgentHandler({
+      legacySecret: '', signing: { keys: { trigger: [], mail: [], mint: [] } },
+      routes: [], health: () => ({}),
+    });
+    expect((await handler(new Request('http://agent.local/health'), '192.168.1.50')).status).toBe(403);
+  });
+});
+
+describe('放行之後仍走原本的認證', () => {
+  it('本機未簽章打受保護路由 → 401（不是 403）；非本機 → 403', async () => {
+    const handler = createAgentHandler({
+      legacySecret: 's3cret', signing: { keys: { trigger: [], mail: [], mint: [] } },
+      routes: [{ method: 'POST', path: '/trigger', purpose: 'trigger', allowLegacy: true, handle: () => Response.json({ ok: 1 }) }],
+      health: () => ({}),
+    });
+    const post = (peer: string, auth?: string) =>
+      handler(new Request('http://agent.local/trigger', { method: 'POST', headers: auth ? { authorization: auth } : {} }), peer);
+    expect((await post('127.0.0.1')).status).toBe(401);
+    expect((await post('127.0.0.1', 'Bearer s3cret')).status).toBe(200);
+    expect((await post('192.168.1.50', 'Bearer s3cret')).status).toBe(403);
+  });
+});
+
+describe('補強邊界：IPv6 與 tailnet IPv6', () => {
+  const xff = (ip: string) => ({ 'x-forwarded-for': ip });
+  it.each([
+    ['2606:4700::', 200],                                   // 2606:4700::/32 起點
+    ['2606:4700:ffff:ffff:ffff:ffff:ffff:ffff', 200],       // 終點
+    ['2606:4701::', 403],                                   // 終點後一個
+    ['2a06:98c7:ffff::1', 200],                             // 2a06:98c0::/29 內
+    ['2a06:98c8::1', 403],                                  // /29 之外
+    ['fd7a:115c:a1e0::1', 403],                             // tailnet IPv6
+  ])('%s → %i', async (ip, status) => {
+    const { call } = setup();
+    expect((await call('127.0.0.1', xff(ip))).status).toBe(status);
+  });
+});

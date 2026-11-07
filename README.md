@@ -37,10 +37,17 @@ Funnel 流量經 Tailscale → Caddy 轉進來，對端永遠是 loopback，真�
 - Caddyfile 的 global options **必須**有 `servers { trusted_proxies static 127.0.0.1/32 }`，否則 Caddy 會把
   `X-Forwarded-For` 改寫成 `127.0.0.1`。agent 看到帶 `Tailscale-Funnel-Request` 卻來源是 loopback 的請求會直接擋掉
   （fail closed），所以漏設的症狀是 Cloudflare 打 `/trigger`、`/internal/mail/send` 全部 403，log 出現 `funnel-not-cloudflare`。
-- **上線順序**：先改 Caddyfile 並 reload（對舊版 agent 無害），再 `zsh scripts/deploy.sh`。
+- **上線順序（硬性前置）**：先改 Caddyfile 並 reload（對舊版 agent 無害），再 `zsh scripts/deploy.sh`；順序反過來，Cloudflare 的請求會全部被擋。
 - Caddy 層也可再加一道 `@notAllowed not client_ip ... respond 403`（網段同 `scripts/lib/ip-allowlist.ts`）。
 - Cloudflare 網段是 `ip-allowlist.ts` 裡的靜態清單（來源 https://www.cloudflare.com/ips-v4 、`/ips-v6`），
   Cloudflare 公告異動時手動更新。
+- **上線前實測**（兩個前提官方文件都沒保證：Tailscale 的 `X-Forwarded-For` 是真實 client IP、Cloudflare Worker 的出口 IP 在公開網段）：
+  1. Caddy 改完 reload 後，從外網（手機關 Wi-Fi 與 VPN）`curl -i https://<funnel 主機>/tripline/api/health`：deploy 後應是 403、
+     api-server log 出現 `ip reject: not-local-or-cloudflare ip=<你的公網 IP>`，證明 Funnel 路徑看得到真實來源。
+  2. 在 app 內送一則旅伴請求（會觸發 Cloudflare 端 `fetch(TRIPLINE_API_URL + '/trigger')`），確認 `/trigger` 有被處理、
+     log 沒有 `ip reject`。若出現 `ip reject ... ip=<非 Cloudflare 的位址>`，代表 Cloudflare 實際出口不在網段，
+     立刻用下一點回復，並把該位址回報修正。
+  3. 結果貼進 PR。
 - 回復：在 `~/.tripline-agent/.env.local` 加 `TRIPLINE_IP_ALLOWLIST=off` 後重新部署（啟動 log 會警告）。
 - 從 tailnet 裝置打 agent 會被擋；要除錯請從本機打。拒絕紀錄在 api-server 的 log（`ip reject: <原因> ip=...`，同一來源每分鐘一行）。
 

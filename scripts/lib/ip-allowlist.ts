@@ -42,7 +42,7 @@ function inList(raw: string, list: BlockList): boolean | null {
 }
 
 export type SourceVerdict =
-  | { ok: true; ip: string; kind: 'local' | 'cloudflare' }
+  | { ok: true; ip: string }
   | { ok: false; ip: string; reason: string };
 
 /**
@@ -54,7 +54,7 @@ export function checkSource(peer: string | undefined, forwardedFor: string | nul
   if (!peer) return { ok: false, ip: '-', reason: 'peer-unknown' };
   if (inList(peer, loopback) !== true) return { ok: false, ip: peer, reason: 'peer-not-loopback' };
   if (forwardedFor === null) {
-    return viaFunnel ? { ok: false, ip: '-', reason: 'funnel-without-xff' } : { ok: true, ip: peer, kind: 'local' };
+    return viaFunnel ? { ok: false, ip: '-', reason: 'funnel-without-xff' } : { ok: true, ip: peer };
   }
 
   const [client, ...hops] = forwardedFor.split(',');
@@ -64,7 +64,7 @@ export function checkSource(peer: string | undefined, forwardedFor: string | nul
   }
   const ip = client.trim();
   if (inList(ip, loopback)) {
-    return viaFunnel ? { ok: false, ip, reason: 'funnel-not-cloudflare' } : { ok: true, ip, kind: 'local' };
+    return viaFunnel ? { ok: false, ip, reason: 'funnel-not-cloudflare' } : { ok: true, ip };
   }
-  return inList(ip, cloudflare) ? { ok: true, ip, kind: 'cloudflare' } : { ok: false, ip, reason: 'not-local-or-cloudflare' };
+  return inList(ip, cloudflare) ? { ok: true, ip } : { ok: false, ip, reason: 'not-local-or-cloudflare' };
 }
