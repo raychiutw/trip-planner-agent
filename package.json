@@ -6,7 +6,8 @@
   "scripts": {
     "test": "vitest run",
     "export:contract": "bun scripts/export-api-contract.ts",
-    "refresh:google": "bun scripts/google-poi-refresh-30d.ts"
+    "refresh:google": "bun scripts/google-poi-refresh-30d.ts",
+    "backfill:place-id": "bun scripts/google-poi-place-id-backfill.ts"
   },
   "dependencies": {
     "dotenv": "^18.0.9",
