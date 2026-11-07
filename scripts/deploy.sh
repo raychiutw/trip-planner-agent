@@ -63,7 +63,10 @@ if [ -z "$NO_LAUNCHCTL" ]; then
   gui="gui/$(id -u)"
   for job in $JOBS; do
     launchctl bootout "$gui/$job" 2>/dev/null || true
-    launchctl bootstrap "$gui" "$AGENTS/$job.plist"
+    # bootout 是非同步的：舊行程還在收尾時 bootstrap 會回 "Input/output error"（2026-11-07 首次部署踩到，
+    # set -e 中斷後 api-server 沒起來、funnel-guard 沒重載）→ 等 service 真的消失再 bootstrap
+    for _ in {1..20}; do launchctl print "$gui/$job" >/dev/null 2>&1 || break; sleep 0.5; done
+    launchctl bootstrap "$gui" "$AGENTS/$job.plist" || { sleep 2; launchctl bootstrap "$gui" "$AGENTS/$job.plist"; }
     launchctl enable "$gui/$job"
     launchctl kickstart -k "$gui/$job"
   done
