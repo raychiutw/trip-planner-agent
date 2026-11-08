@@ -40,9 +40,9 @@
 | api-server error log | process loop crash 後 request 卡住 | PATCH → open |
 | daily-check error log | 上次修復失敗的項目 | 重試一次 |
 
-### Phase B：Code 診斷（只回報，不自動修）
+### Phase B：Code Fix（matt skill，只做到開 PR）
 
 | 來源 | 觸發條件 | 修復動作 |
 |------|---------|---------|
-| Sentry issues | 有明確 error + 可定位 source | 報告列出 source、根因與建議修法 |
-| API errors（自家 caller） | 非外部 API、非使用者操作錯誤 | 報告列出 caller 位置與建議修法 |
+| Sentry issues | 有明確 error + 可定位 source | fix branch → tdd → code-review → 開 PR（不 merge） |
+| API errors（自家 caller） | 非外部 API、非使用者操作錯誤 | 修正 caller code 並納入同一個 PR |

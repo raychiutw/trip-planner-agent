@@ -1,6 +1,6 @@
-# Phase B：Code 診斷判斷標準與流程
+# Phase B：Code Fix 判斷標準與流程
 
-**本階段只診斷與回報，不自動修。** 不開 branch、不改 code、不開 PR、不 merge、不部署；修復由 owner 決定。
+**用 matt skill 自動修，只做到開 PR。** 不 merge、不部署；merge 需 owner 明確同意。
 
 ## 鐵律：先 grep，不要猜
 
@@ -13,9 +13,9 @@
   3. 判定：可修 → 報告列出建議修法  |  真的不可修 → 標記原因
 ```
 
-## 可修類型（報告中列出建議修法）
+## 可自動修（預設嘗試修復）
 
-| 類型 | 定位方式 | 建議修法 |
+| 類型 | 定位方式 | 修法 |
 |------|---------|---------|
 | React render error | grep error message → 找到 component | 修正 render 邏輯 |
 | API auth error（自家 caller） | grep 401/403 的 API path → 找到 caller | 修正 auth header |
@@ -36,6 +36,25 @@
 
 **「Sentry 缺 file path」「找不到 source」不是放棄的理由。** grep 找。
 
+## Code Fix 流程
+
+```
+所有可修 issues 共用一個 branch：
+  git checkout -b fix/daily-check-autofix-YYYY-MM-DD   （從最新 origin/master）
+  → 逐一修復每個 issue（每個 issue 一個 commit）
+    → Skill diagnosing-bugs：先建一個對這個 bug 會變紅的指令，確認真的紅
+    → Skill tdd：先寫失敗測試並跑到紅燈，再寫最小修法轉綠
+    → commit（描述修了什麼）
+  → 全部修完後：
+    → Skill code-review（fixed point = origin/master；Standards + Spec 兩軸）
+    → /tp-code-verify（不可跳過）
+    → npm test、tsc 全綠
+    → gh pr create（內文遵循 Skill pr，附紅燈輸出）
+    → 結果寫入 Telegram 報告（附 PR 連結）
+```
+
+**一天只開一個 fix branch + 一個 PR。** 若任一 issue 失敗，標記失敗原因，繼續下一個；PR 只含成功的 fix。**不 merge、不部署**，由 owner 看 PR 後決定。
+
 ## 報告內容
 
-每個 issue 一段：source file 與行號、根因、建議修法、為什麼不自動修（一律是「本階段不自動修」）。結果寫入 Telegram 報告與 `fix-result.json`：每項 `status` 一律填 `skipped`，`summary` 寫診斷結論與建議修法（`fixed` 恆為 0）。
+`fix-result.json` 每項 `status` 為 `fixed`（已進 PR）／`skipped`／`failed`，`summary` 一行摘要；Telegram 附 PR 連結。
