@@ -36,7 +36,7 @@ Anti-slop 完整 checklist + 好/壞設計信號
 |-------|-------------------|
 | `fork_verifier_agent` 背景驗證 | Agent tool 平行派遣 + 截圖驗證 |
 | `show_to_user` 中途預覽 | Write HTML 到系統暫存區（Unix `/tmp/*.html`、Windows `$env:TEMP\*.html`）+ 系統開啟指令（Windows `Start-Process`、macOS `open`、Linux `xdg-open`） |
-| `done` 最終交付 | 走 `/tp-team` pipeline（/tp-code-verify + PR） |
+| `done` 最終交付 | 走 `/implement`（內部跑 /tdd 與 /code-review，再 /tp-code-verify + PR） |
 | `invoke_skill` | Claude Code `Skill` tool |
 | `register_assets` 版本管理 | git commit + feature branch |
 
@@ -63,7 +63,7 @@ Anti-slop 完整 checklist + 好/壞設計信號
 
 - **mockup 階段豁免**：HTML mockup 在 `/tmp/` 或 `$env:TEMP` 未合入 `src/` 的 artifact 屬探索期，**豁免 TDD**（視同 throwaway spike）
 - **合入 `src/` 的入口**：任何 React component / page 放進 `src/` 前，**必須依全域 TDD 規則先寫 failing test**（unit / integration）再實作
-- **銜接點**：走 `/tp-team` pipeline 的 **Build 階段**時啟動 TDD 紅綠重構；Review/Ship 階段才是 PR 化
+- **銜接點**：走 `/implement` 時由 `/tdd` 啟動紅綠重構；收尾 `/code-review` 後才 PR 化
 - **跨階段檢核**：若 mockup 直接整理成 PR（跳過 Build 階段）→ PR body 須標示為 retroactive TDD 豁免並在同 PR 補 test
 
 ## 使用時機
@@ -99,4 +99,4 @@ invoke 本 skill 的情境：
 3. **anti-slop pre-flag** — 對照 L2 清單，若使用者 spec 含有 slop 模式（welcome cover / 自創字體 / 外部 plugin 等），flag 出來跟使用者討論**再開工**
 4. **3+ variant 承諾** — 產出時永遠至少 3 個變體供選擇或 remix（或取得使用者明確豁免，並記錄豁免理由）
 5. **Scale standards 確認** — 文字字級 ≥ DESIGN.md `--font-size-body`（16px mobile / 17px desktop）；touch target ≥ 44px
-6. **交付路徑確認** — mockup 停 `/tmp/` 還是進 `src/`？後者必須走 `/tp-team` pipeline（/tp-code-verify → PR）並先寫 test（見 TDD 銜接）
+6. **交付路徑確認** — mockup 停 `/tmp/` 還是進 `src/`？後者必須走 `/implement`（/tdd → /code-review → /tp-code-verify → PR）並先寫 test（見 TDD 銜接）

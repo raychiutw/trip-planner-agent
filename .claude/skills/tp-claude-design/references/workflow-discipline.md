@@ -79,7 +79,7 @@ src/pages/*.tsx                    # TripPage, ManagePage, MapPage, StopDetailPa
 7. Show to user early
 8. Iterate on feedback
 9. Final polish
-10. Hand off to `/tp-team` pipeline（若要合併進 production code）
+10. Hand off to `/implement`（若要合併進 production code）
 
 ## 04. Build & Show Early — 最關鍵原則
 
@@ -136,7 +136,7 @@ npm test -- --run tests/unit/xxx.test.tsx  # 單元測試
 >
 > **下一步**：
 > - 選 variant（或 remix）
-> - 若要合進 production：走 /tp-team pipeline
+> - 若要合進 production：走 /implement
 
 ## 3+ Variant 紀律
 

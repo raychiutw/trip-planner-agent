@@ -82,7 +82,7 @@
 | `animations.jsx` 動畫引擎 | 用 Tailwind `transition-*` + CSS `@keyframes`；不引第三方 animation lib（見 §7e） |
 | `fork_verifier_agent`（背景驗證） | Agent tool 平行派遣 |
 | `show_to_user`（中途預覽） | Write + 系統開啟指令 |
-| `done`（最終交付） | /tp-team pipeline 7 階段 |
+| `done`（最終交付） | /implement（/tdd → /code-review → PR） |
 | `register_assets` 版本管理 | git commit + feature branch |
 | `invoke_skill` | Claude Code `Skill` tool |
 | `window.claude.complete` in-artifact API | 不使用（專案有 Cloudflare Workers backend） |
