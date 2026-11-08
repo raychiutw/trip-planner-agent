@@ -1,6 +1,6 @@
 ---
 name: tp-claude-design
-description: Use when trip-planner 從零產出新視覺 artifact：新 page、新 React component、HTML mockup/prototype、完整 UI 重做、視覺/layout variant 探索。僅處理視覺 artifact，不處理文案 variant、token 值、既有 component 單一 property tweak（padding/radius/color/hover/shadow）、既有 component 加單一子元素（badge/icon/label）、tokens.css 新變數、已上線稽核。觸發詞：「設計一個頁面/component」「做 mockup/prototype」「layout 重做」「UI 重新設計」「admin / onboarding 介面」「視覺 variant 比較」。NOT FOR：文案 variant → /tp-edit；tokens 新變數 → 與 owner 討論後改 DESIGN.md；小 property tweak → 直接改 tokens.css；既有 component 加 badge/icon → 直接實作；code bug → /diagnosing-bugs；行程資料 → /tp-edit；跨專案 variant → gstack /design-shotgun。
+description: Use when trip-planner 從零產出新視覺 artifact：新 page、新 React component、HTML mockup/prototype、完整 UI 重做、視覺/layout variant 探索。僅處理視覺 artifact，不處理文案 variant、token 值、既有 component 單一 property tweak（padding/radius/color/hover/shadow）、既有 component 加單一子元素（badge/icon/label）、tokens.css 新變數、已上線稽核。觸發詞：「設計一個頁面/component」「做 mockup/prototype」「layout 重做」「UI 重新設計」「admin / onboarding 介面」「視覺 variant 比較」。NOT FOR：文案 variant → /tp-edit；tokens 新變數 → 與 owner 討論後改 DESIGN.md；小 property tweak → 直接改 tokens.css；既有 component 加 badge/icon → 直接實作；code bug → /diagnosing-bugs；行程資料 → /tp-edit。
 ---
 
 # tp-claude-design — Claude Design 5 層紀律（trip-planner 適配版）
