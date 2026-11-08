@@ -8,7 +8,7 @@
 import { describe, it, expect, beforeEach } from 'vitest';
 import { execFileSync } from 'node:child_process';
 import {
-  existsSync, lstatSync, mkdtempSync, readFileSync, statSync, writeFileSync, mkdirSync, readlinkSync,
+  existsSync, lstatSync, mkdtempSync, readFileSync, statSync, writeFileSync, mkdirSync, readlinkSync, chmodSync,
 } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
@@ -18,6 +18,7 @@ const DEPLOY = join(REPO, 'scripts/deploy.sh');
 
 let runtime: string;
 let agents: string;
+let claudeJson: string;
 
 function deploy() {
   // umask 077：預設 umask 下 tar 解出來本來就可讀，測不出 chmod 有沒有作用
@@ -30,6 +31,7 @@ function deploy() {
       NO_FETCH: '1',
       NO_LAUNCHCTL: '1',
       SKIP_INSTALL: '1',
+      CLAUDE_CONFIG_FILE: claudeJson,   // 永遠指到暫存檔，測試不碰真的 ~/.claude.json
     },
     stdio: 'pipe',
   });
@@ -39,6 +41,7 @@ beforeEach(() => {
   const base = mkdtempSync(join(tmpdir(), 'tripline-deploy-'));
   runtime = join(base, 'runtime');
   agents = join(base, 'agents');
+  claudeJson = join(base, 'claude.json');
   mkdirSync(agents);
 });
 
@@ -110,6 +113,60 @@ describe('deploy.sh', () => {
     expect(statSync(join(runtime, 'app')).mode & 0o055).toBe(0o055);
     expect(statSync(runtime).mode & 0o001).toBe(0o001);
     expect(statSync(join(runtime, '.env.local')).mode & 0o777).toBe(0o600);
+  });
+});
+
+describe('deploy.sh — Claude Code 對執行目錄的信任', () => {
+  // Claude Code 對沒開過的資料夾會先跳「信任這個資料夾？」，吃掉 api-server 送進 tmux session 的 skill 指令
+  //（2026-11-08 06:10 daily-check 因此失敗：「REPL 未接到輸入」）。執行目錄是新路徑時沒有信任紀錄，部署要補上。
+  const trusted = () => JSON.parse(readFileSync(claudeJson, 'utf8')).projects?.[join(runtime, 'app')];
+
+  it('設定檔存在 → 補上 app 目錄的信任，其他設定原封不動', () => {
+    writeFileSync(claudeJson, JSON.stringify({ numStartups: 7, projects: { '/other/repo': { hasTrustDialogAccepted: true, x: 1 } } }));
+    deploy();
+    expect(trusted()?.hasTrustDialogAccepted).toBe(true);
+    const cfg = JSON.parse(readFileSync(claudeJson, 'utf8'));
+    expect(cfg.numStartups).toBe(7);
+    expect(cfg.projects['/other/repo']).toEqual({ hasTrustDialogAccepted: true, x: 1 });
+  });
+
+  it('該目錄已有其他紀錄 → 只改信任旗標，保留其餘欄位', () => {
+    deploy();   // 先建好 runtime 路徑
+    writeFileSync(claudeJson, JSON.stringify({ projects: { [join(runtime, 'app')]: { hasTrustDialogAccepted: false, allowedTools: ['Bash'] } } }));
+    deploy();
+    expect(trusted()).toEqual({ hasTrustDialogAccepted: true, allowedTools: ['Bash'] });
+  });
+
+  it('已經信任 → 不改寫檔案（執行中的 Claude 也會寫這個檔，能不碰就不碰）', () => {
+    deploy();
+    writeFileSync(claudeJson, JSON.stringify({ projects: { [join(runtime, 'app')]: { hasTrustDialogAccepted: true } } }, null, 4));
+    const before = statSync(claudeJson).mtimeMs;
+    const bytes = readFileSync(claudeJson, 'utf8');
+    deploy();
+    expect(readFileSync(claudeJson, 'utf8')).toBe(bytes);
+    expect(statSync(claudeJson).mtimeMs).toBe(before);
+  });
+
+  it('保留設定檔原本的權限', () => {
+    // 用 0640：deploy 在 umask 077 下跑，新檔預設就是 0600，用 0600 測不出有沒有保留
+    writeFileSync(claudeJson, '{}');
+    chmodSync(claudeJson, 0o640);
+    deploy();
+    expect(statSync(claudeJson).mode & 0o777).toBe(0o640);
+    expect(trusted()?.hasTrustDialogAccepted).toBe(true);
+  });
+
+  it('設定檔不存在 → 部署照常成功，也不憑空建立', () => {
+    deploy();
+    expect(existsSync(claudeJson)).toBe(false);
+    expect(existsSync(join(runtime, 'app/scripts/tripline-api-server.ts'))).toBe(true);
+  });
+
+  it('設定檔壞掉（不是 JSON）→ 部署不中止，檔案原樣保留', () => {
+    writeFileSync(claudeJson, '{ not json');
+    deploy();
+    expect(readFileSync(claudeJson, 'utf8')).toBe('{ not json');
+    expect(existsSync(join(runtime, 'app/scripts/tripline-api-server.ts'))).toBe(true);
   });
 });
 

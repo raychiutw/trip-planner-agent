@@ -48,6 +48,25 @@ ln -sfn ../.env.local "$RUNTIME/app/.env.local"
 ln -sfn ../../logs "$RUNTIME/app/scripts/logs"
 echo "$SHA" > "$RUNTIME/app/.deployed-ref"
 
+# Claude Code 對沒開過的資料夾會先跳「信任這個資料夾？」，吃掉 api-server 送進 tmux session 的 skill 指令
+#（2026-11-08 06:10 daily-check 因此失敗：「REPL 未接到輸入」）。執行目錄是新路徑時沒有信任紀錄 → 部署時補上。
+# 已信任就不改寫（執行中的 Claude 也會寫這個檔）；設定檔不存在或壞掉只警告，不中止部署。
+# shortcut: 讀改寫沒有跨行程鎖，與同時寫檔的 Claude 理論上會互蓋；窗口極短，真的撞到再重跑部署即可。
+CLAUDE_CONFIG="${CLAUDE_CONFIG_FILE:-$HOME/.claude.json}"
+if [ -f "$CLAUDE_CONFIG" ]; then
+  node -e '
+    const fs = require("fs"), [file, dir] = process.argv.slice(1);
+    const cfg = JSON.parse(fs.readFileSync(file, "utf8"));
+    const proj = (cfg.projects ||= {})[dir] ||= {};
+    if (proj.hasTrustDialogAccepted === true) process.exit(0);
+    proj.hasTrustDialogAccepted = true;
+    const tmp = file + ".tmp-" + process.pid;
+    fs.writeFileSync(tmp, JSON.stringify(cfg, null, 2));
+    fs.chmodSync(tmp, fs.statSync(file).mode & 0o777);   // writeFileSync 的 mode 會被 umask 遮掉，要明確 chmod
+    fs.renameSync(tmp, file);
+  ' "$CLAUDE_CONFIG" "$RUNTIME/app" || echo "⚠ 無法更新 $CLAUDE_CONFIG：請手動在 $RUNTIME/app 開一次 claude 並選信任" >&2
+fi
+
 [ -n "$SKIP_INSTALL" ] || (cd "$RUNTIME/app" && bun install --production)
 
 mkdir -p "$AGENTS"
