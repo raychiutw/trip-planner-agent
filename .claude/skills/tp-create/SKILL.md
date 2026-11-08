@@ -116,9 +116,9 @@ user-invocable: true
 
 8b. **Travel 重算（鐵律，v2.24.0+）**：所有天 PUT 完成 + 所有 entry location 補完後，呼叫 `POST /api/trips/{tripId}/recompute-travel?day=all` 一次。Backend 跑 1km gate Haversine + Google Routes API + 寫 `trip_segments`；`mode='transit'` 既有 segment 不覆寫；同時 trip-wide prune 不再相鄰的幽靈段。不要在 PUT body 手填 `travel` 巢狀欄位，segments table 是 SoT。
 
-### Phase 2：Google 評分充填（browse-first）
+### Phase 2：Google 評分充填（enrich-first）
 
-> ⚠️ **googleRating 查詢策略見 tp-shared/references.md**（browse-first，WebSearch 僅做 fallback）。
+> ⚠️ **googleRating 查詢策略見 tp-shared/references.md**（enrich endpoint 優先，WebSearch 僅做 fallback）。
 
 #### Step 2a：收集所有需要評分的 POI
 
@@ -128,13 +128,13 @@ user-invocable: true
 
 排除不需評分的 entry：travel event、「午餐」「餐廳未定」、「出發」「返回」「退房」等非實體地點。
 
-#### Step 2b：browse 批次查詢腳本
+#### Step 2b：enrich 批次補評分
 
-用 `/browse` 的 `$B goto` + `$B text` 批次查詢所有 POI。腳本模板與 PATCH 方式見 `references/browse-rating-script.md`。
+對每個 POI 呼叫 `POST /api/pois/{id}/enrich`，由 backend 打 Google Place Details 寫入 rating。呼叫方式見 tp-search-strategies。
 
 #### Step 2d：WebSearch fallback
 
-browse 查不到的 POI，依 tp-shared/references.md「googleRating 查詢策略」的 fallback 步驟補查。仍查不到 → 不填（R13 source=ai 缺 rating 會被 tp-check 標記）。
+enrich 查不到的 POI，依 tp-shared/references.md「googleRating 查詢策略」的 fallback 步驟補查。仍查不到 → 不填（R13 source=ai 缺 rating 會被 tp-check 標記）。
 
 9. 執行 Step 2a-2d
 10. 確認所有 POI 評分完整

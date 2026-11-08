@@ -43,16 +43,16 @@ echo "Report: $REPORT_JSON"
 - api-server error log 中 request 卡住 → PATCH → open
 - daily-check error log 中上次修復失敗 → 重試一次
 
-**Phase B：Code Fix**（走 tp-team pipeline，分鐘級）— **不可跳過**
+**Phase B：Code 診斷**（只診斷與回報，不自動修）— **不可跳過**
 - 對報告中每個 warning/critical issue，必須執行以下 checklist：
   ```
   □ grep error message / API path → 找到 source file
   □ 讀取 source file，分析根因
-  □ 判定：可修 → 開 fix branch 修  |  真的不可修 → 附上 grep 結果證明
+  □ 判定：可修 → 在報告列出建議修法與檔案位置  |  真的不可修 → 附上 grep 結果證明
   ```
 - **「0 users」「超過 7 天」「非 code bug」不是跳過的理由** — 只要 Sentry 有 unresolved issue 就嘗試修
 - **API 4xx 必須 grep 呼叫端** — 查是哪個 script/skill 發的，auth header 有沒有帶對
-- 對每個可修 issue：開 fix branch → 在當前 session 內走 `/tp-code-verify` → `/ship` → `/land-and-deploy`（當前 session 內全部一氣呵成，不再 spawn 新 claude process）
+- **不開 branch、不改 code、不開 PR、不 merge、不部署**；可修的 issue 在報告寫明 source file、根因與建議修法，交給 owner 決定
 - 修不了的必須附上「嘗試了什麼 + grep 結果 + 為什麼修不了」
 
 把修復結果寫到 `scripts/logs/daily-check/YYYY-MM-DD-fix-result.json`：
@@ -85,7 +85,7 @@ bash scripts/lib/send-telegram.sh "$MSG"
 
 Code fix 的判斷標準、可修/不可修分類、完整修復流程詳見 `references/code-fix-rules.md`。
 
-摘要：先 grep 定位 source → /investigate 分析根因 → 可修就開 fix branch → 走 tp-team pipeline（verify → review → cso → ship → deploy）。
+摘要：先 grep 定位 source → 分析根因 → 在報告列出建議修法（不自動修）。
 
 ## Telegram 格式與修復範圍
 
@@ -95,7 +95,7 @@ Telegram 報告格式（有問題/全綠）和 Phase A/B 修復範圍詳見 `ref
 
 - 由 `scripts/tripline-api-server.ts` 內建 cron 在每日 06:10 透過 ephemeral tmux session 觸發；user shell env 透過 `scripts/lib/load-env.mjs` 載入 `.env.local`
 - `.env.local` 需有：`CLOUDFLARE_API_TOKEN`、`CF_ACCOUNT_ID`、`D1_DATABASE_ID`、`SENTRY_AUTH_TOKEN`、`SENTRY_ORG`、`SENTRY_PROJECT`、`TELEGRAM_BOT_HOME_TOKEN`（或 `TELEGRAM_BOT_TOKEN`）、`TELEGRAM_CHAT_ID`
-- Code fix 需要 git / npm / 既有 skill (tp-team / ship / land-and-deploy)
+- Code 診斷需要 git（唯讀）與 grep
 
 ## Self-destruct（tmux 觸發 only — v2.31.3+）
 

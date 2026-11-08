@@ -100,7 +100,7 @@
 使用者指定第 N 天顏色時，只用 DESIGN.md 定版 10 色裡的第 N 個。不要「創造一個介於 teal 和 emerald 之間」的色。見 §4。
 
 ### 7c. 拒絕改動 palette hex / 字體 family / 字級
-所有色值、字體、字級的修改**必須走 `/design-consultation update`**，不要偷偷改 tokens.css 或 DESIGN.md。見 §3、§5。
+所有色值、字體、字級的修改**必須先跟 owner 討論並更新 DESIGN.md**，不要偷偷改 tokens.css 或 DESIGN.md。見 §3、§5。
 
 ### 7d. 拒絕引入新 icon library / SVG pack
 本專案 icon 是 `src/components/shared/Icon.tsx` 的 inline SVG 系統。新 UI 需要圖示時**延伸這個系統**，不要 import lucide-react / heroicons / tabler-icons。
@@ -122,7 +122,7 @@
 3. **永遠告知使用者** override 的存在，不要偷偷做決定
 
 **告知格式範例**：
-> "原文 Claude Design 說 X，但本專案已定 Y（見 DESIGN.md Decisions Log 2026-04-XX）。我先用 Y。若要挑戰這個 shipped decision，走 /design-consultation update 流程。"
+> "原文 Claude Design 說 X，但本專案已定 Y（見 DESIGN.md Decisions Log 2026-04-XX）。我先用 Y。若要挑戰這個 shipped decision，先跟 owner 討論並更新 DESIGN.md。"
 
 ---
 

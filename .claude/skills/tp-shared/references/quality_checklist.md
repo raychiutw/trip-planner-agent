@@ -38,7 +38,6 @@
 | `D1_DATABASE_ID` | D1 database ID | tp-daily-check | shell profile / `.env.local` |
 | `SENTRY_AUTH_TOKEN` | Sentry API | tp-daily-check | shell profile / `.env.local` |
 | `SENTRY_ORG` / `SENTRY_PROJECT` | Sentry project | tp-daily-check | shell profile / `.env.local` |
-| `BROWSE_BIN`（選填） | browse binary 路徑 | tp-create | 自動 fallback |
 | `/tmp/*.json` | curl --data @file 暫存 | tp-create, tp-patch, tp-request | 自動清理 |
 | `/tmp/api-helper.js` | API 呼叫 helper | tp-create | session 內有效 |
 
@@ -54,7 +53,6 @@
 | googleRating 策略無重複定義 | ✅ | L1 已統一引用 tp-shared |
 | tp-rebuild-all 已移除 | ✅ | 完全整合到 tp-rebuild --all |
 | Gemini 無過時 skill | ✅ | M6 已清除 tp-deploy/tp-run/tp-shutdown/tp-hig |
-| browse binary 路徑可攜 | ✅ | M2 已加 USERPROFILE fallback |
 
 ## Overlap 邊界確認
 
@@ -69,7 +67,7 @@
 
 ## 已知限制（非錯誤，記錄備查）
 
-1. ~~**tp-create Phase 2 browse 腳本仍內嵌**~~ → ✅ 已移至 `tp-create/references/browse-rating-script.md`（2026-04-08）
+1. ~~**tp-create Phase 2 browse 腳本仍內嵌**~~ → ✅ 已移除，改用 enrich endpoint
 2. **tp-patch 保留自己的 API 設定段** — 與 tp-shared 重複但含 target/field 指令格式，暫不合併
 3. **tp-request 保留 inline curl 範例** — 安全邊界的 X-Request-Scope header 是獨特的，保留有助於強調
 
@@ -97,7 +95,7 @@
 | C1 | 🔴 | tp-edit 步驟 7 編號重複 | ✅ 修正為 7→8→9 |
 | C2 | 🔴 | tp-daily-check 引用 Windows Task Scheduler | ✅ 更新為 macOS 排程 |
 | C3 | 🔴 | tp-request 引用 Windows Task Scheduler | ✅ 更新為本機排程 |
-| R1 | 🟡 | tp-create 218 行無 references/，inline JS 模板 | ✅ 拆出 api-helper-template.md + browse-rating-script.md（155 行，-29%） |
+| R1 | 🟡 | tp-create 218 行無 references/，inline JS 模板 | ✅ 拆出 api-helper-template.md（browse-rating-script.md 已移除） |
 | R2 | 🟡 | tp-check 156 行無 references/，report + severity inline | ✅ 拆出 report-format.md + severity-thresholds.md（89 行，-43%） |
 | R3 | 🟡 | tp-shared references.md vs references/ 角色不清 | ✅ SKILL.md 加文件結構表 |
 | R4 | 🟡 | quality_checklist Credential 表引用 PowerShell | ✅ 更新為 shell profile / .env.local |

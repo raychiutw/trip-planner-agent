@@ -12,7 +12,7 @@ Event type schema（各類型物件必填欄位）見 `references/event-schema.m
 
 **v2.23.0 (migration 0051) 之後，POI 補資料統一透過 `POST /api/pois/{id}/enrich`。** Backend 直接打 Google Place Details API（API Routes v1）拿 rating / address / phone / hours / business_status，COALESCE 寫進 pois 表。
 
-不要 `/browse` 爬 Google Maps 詳情頁，不要 WebSearch 摘要拼湊 — 兩者都比 backend Place Details 取得的資料粗糙（Google Maps 對未登入訪客限制 hours，WebSearch 結果聚合多 source 不一致）。
+不要用瀏覽器爬 Google Maps 詳情頁，不要 WebSearch 摘要拼湊 — 兩者都比 backend Place Details 取得的資料粗糙（Google Maps 對未登入訪客限制 hours，WebSearch 結果聚合多 source 不一致）。
 
 完整呼叫流程見 `references/poi-spec.md` §「POI 補資料策略」。
 
@@ -147,7 +147,7 @@ done
 
 | ❌ Anti-pattern | ✅ 正確做法 |
 |---|---|
-| `/browse goto google.com/maps/search/...` 抓 raw text | `POST /api/pois/:id/enrich` |
+| 瀏覽器開 google.com/maps/search/... 抓 raw text | `POST /api/pois/:id/enrich` |
 | WebSearch「POI 名稱 営業時間」拼湊 hours | 同上 |
 | LLM 直接呼叫 Google Place Details API | 同上（透過 backend 統一 quota / key 管理） |
 | `PATCH /pois/:id` 手動寫 rating/hours/phone | enrich 自動處理（除非用戶 explicit override） |

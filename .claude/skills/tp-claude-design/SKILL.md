@@ -1,6 +1,6 @@
 ---
 name: tp-claude-design
-description: Use when trip-planner 從零產出新視覺 artifact：新 page、新 React component、HTML mockup/prototype、完整 UI 重做、視覺/layout variant 探索。僅處理視覺 artifact，不處理文案 variant、token 值、既有 component 單一 property tweak（padding/radius/color/hover/shadow）、既有 component 加單一子元素（badge/icon/label）、tokens.css 新變數、已上線稽核。觸發詞：「設計一個頁面/component」「做 mockup/prototype」「layout 重做」「UI 重新設計」「admin / onboarding 介面」「視覺 variant 比較」。NOT FOR：文案 variant → /tp-edit；tokens 新變數 → /design-consultation update；小 property tweak → 直接改 tokens.css；既有 component 加 badge/icon → 直接實作；上線稽核 → /design-review；plan 階段 → /plan-design-review；code bug → /investigate；行程資料 → /tp-edit；跨專案 variant → gstack /design-shotgun。
+description: Use when trip-planner 從零產出新視覺 artifact：新 page、新 React component、HTML mockup/prototype、完整 UI 重做、視覺/layout variant 探索。僅處理視覺 artifact，不處理文案 variant、token 值、既有 component 單一 property tweak（padding/radius/color/hover/shadow）、既有 component 加單一子元素（badge/icon/label）、tokens.css 新變數、已上線稽核。觸發詞：「設計一個頁面/component」「做 mockup/prototype」「layout 重做」「UI 重新設計」「admin / onboarding 介面」「視覺 variant 比較」。NOT FOR：文案 variant → /tp-edit；tokens 新變數 → 與 owner 討論後改 DESIGN.md；小 property tweak → 直接改 tokens.css；既有 component 加 badge/icon → 直接實作；code bug → /diagnosing-bugs；行程資料 → /tp-edit；跨專案 variant → gstack /design-shotgun。
 ---
 
 # tp-claude-design — Claude Design 5 層紀律（trip-planner 適配版）
@@ -34,9 +34,9 @@ Anti-slop 完整 checklist + 好/壞設計信號
 
 | 原工具 | trip-planner 替代 |
 |-------|-------------------|
-| `fork_verifier_agent` 背景驗證 | Agent tool 平行派遣 + `/browse` 截圖驗證 |
+| `fork_verifier_agent` 背景驗證 | Agent tool 平行派遣 + 截圖驗證 |
 | `show_to_user` 中途預覽 | Write HTML 到系統暫存區（Unix `/tmp/*.html`、Windows `$env:TEMP\*.html`）+ 系統開啟指令（Windows `Start-Process`、macOS `open`、Linux `xdg-open`） |
-| `done` 最終交付 | 走 `/tp-team` pipeline（/tp-code-verify + /review + /cso + /ship） |
+| `done` 最終交付 | 走 `/tp-team` pipeline（/tp-code-verify + PR） |
 | `invoke_skill` | Claude Code `Skill` tool |
 | `register_assets` 版本管理 | git commit + feature branch |
 
@@ -84,13 +84,11 @@ invoke 本 skill 的情境：
 | 純資料操作 | `/tp-edit` |
 | Code refactor 不涉視覺 | `/tp-code-verify` |
 | Backend API（functions/api/） | 直接實作 |
-| 已上線視覺稽核 | `/design-review` |
 | **既有 component 加單一新子元素**（badge / icon / label，不改 layout） | 直接實作 |
 | **既有 component 單一 property tweak**（padding / radius / color / hover / shadow） | 直接改 tokens.css 或 component |
 | **文案 / copywriting / tone variant**（即使說「給我 3 個 variant」） | `/tp-edit` |
-| **tokens.css 新變數 / palette 新色值**（例：`--color-accent-subtle`） | `/design-consultation update` |
+| **tokens.css 新變數 / palette 新色值**（例：`--color-accent-subtle`） | 與 owner 討論後改 DESIGN.md 與 tokens.css |
 | **variant 數 ≤ 2 且僅改單一 property**（例：試 2 種 radius） | 直接實作 |
-| plan 階段視覺審查 | `/plan-design-review` |
 
 ## 開工前 precondition（必須滿足才算準備好）
 
@@ -101,4 +99,4 @@ invoke 本 skill 的情境：
 3. **anti-slop pre-flag** — 對照 L2 清單，若使用者 spec 含有 slop 模式（welcome cover / 自創字體 / 外部 plugin 等），flag 出來跟使用者討論**再開工**
 4. **3+ variant 承諾** — 產出時永遠至少 3 個變體供選擇或 remix（或取得使用者明確豁免，並記錄豁免理由）
 5. **Scale standards 確認** — 文字字級 ≥ DESIGN.md `--font-size-body`（16px mobile / 17px desktop）；touch target ≥ 44px
-6. **交付路徑確認** — mockup 停 `/tmp/` 還是進 `src/`？後者必須走 `/tp-team` pipeline（/tp-code-verify → /review → /cso --diff → /ship）並先寫 test（見 TDD 銜接）
+6. **交付路徑確認** — mockup 停 `/tmp/` 還是進 `src/`？後者必須走 `/tp-team` pipeline（/tp-code-verify → PR）並先寫 test（見 TDD 銜接）
