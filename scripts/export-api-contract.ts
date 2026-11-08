@@ -7,6 +7,7 @@
  * 內容：
  *   dailyCheckSql   — daily-check 各來源實際送給 D1 的 SQL（用記錄器攔截 queryD1，不連線）
  *   companionTools  — MCP server 中標為 companion: true 的工具 { name, method, path }
+ *   limits          — worker 最長執行時間（分鐘）；api 端驗證它 < REQUEST_STALE_MINUTES
  *
  * 更新：`npm run export:contract`，再把 contract/api-contract.json 複製到 api repo 的
  * tests/fixtures/agent-contract.json。agent 端的 tests/unit/api-contract-export.test.ts
@@ -18,6 +19,7 @@ import { createRequire } from 'node:module';
 import { writeFileSync, mkdirSync } from 'node:fs';
 import { dirname, resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { ORPHAN_MAX_AGE_MS } from './lib/request-worker';
 
 const require_ = createRequire(import.meta.url);
 const here = dirname(fileURLToPath(import.meta.url));
@@ -37,6 +39,7 @@ export interface ApiContract {
   note: string;
   dailyCheckSql: DailyCheckSqlEntry[];
   companionTools: CompanionToolEntry[];
+  limits: { requestWorkerMaxMinutes: number };
 }
 
 /** 逐一執行各來源的 run()，記錄實際送出的 SQL。其他 IO（網路、檔案、子程序）一律擋下。 */
@@ -82,6 +85,7 @@ export async function buildApiContract(): Promise<ApiContract> {
     note: '由 scripts/export-api-contract.ts 產生，請勿手改；更新方式見該檔檔頭。',
     dailyCheckSql: await collectDailyCheckSql(),
     companionTools: collectCompanionTools(),
+    limits: { requestWorkerMaxMinutes: ORPHAN_MAX_AGE_MS / 60_000 },
   };
 }
 
