@@ -43,7 +43,7 @@ POI 欄位規格見 `tp-shared/references.md`（v2.29.0 後：`pois` master vs `
 
 6. 依欄位類型選擇查詢策略：
 
-   **rating → 查詢策略見 tp-shared/references.md「googleRating 查詢策略」**（browse-first，WebSearch 僅做 fallback；PATCH /api/pois Body 用 `{ rating: X.X }`）
+   **rating → 查詢策略見 tp-shared/references.md「googleRating 查詢策略」**（enrich endpoint 優先，WebSearch 僅做 fallback；PATCH /api/pois Body 用 `{ rating: X.X }`）
 
    **address / phone → WebSearch 即可**
    - 搜尋 "{POI name} 住所" 或 "{POI name} 地址"

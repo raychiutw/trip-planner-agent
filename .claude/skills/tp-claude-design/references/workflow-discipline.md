@@ -79,7 +79,7 @@ src/pages/*.tsx                    # TripPage, ManagePage, MapPage, StopDetailPa
 7. Show to user early
 8. Iterate on feedback
 9. Final polish
-10. Hand off to `/tp-team` pipeline（若要合併進 production code）
+10. Hand off to `/implement`（若要合併進 production code）
 
 ## 04. Build & Show Early — 最關鍵原則
 
@@ -113,7 +113,7 @@ npm test -- --run tests/unit/xxx.test.tsx  # 單元測試
 
 **Phase 2 — 深度檢查**（相當於原文 `fork_verifier_agent`，silent on pass）：
 - 派 Agent tool 做 anti-slop 稽核（對照 anti-slop-checklist.md）
-- `/browse` 或 `/design-review` 做視覺截圖驗證
+- 截圖做視覺驗證
 - 對比 DESIGN.md 的 token 是否被違反（tp-ux-verify H1-H12）
 
 **只有發現問題時才吵主 agent**。沒問題靜默通過。
@@ -136,7 +136,7 @@ npm test -- --run tests/unit/xxx.test.tsx  # 單元測試
 >
 > **下一步**：
 > - 選 variant（或 remix）
-> - 若要合進 production：走 /tp-team pipeline
+> - 若要合進 production：走 /implement
 
 ## 3+ Variant 紀律
 

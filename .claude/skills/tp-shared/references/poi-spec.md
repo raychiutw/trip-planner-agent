@@ -134,12 +134,12 @@ done
 
 | ❌ Anti-pattern | ✅ 正確做法 |
 |---|---|
-| `/browse` 爬 Google Maps 詳情頁手動抽 | `POST /api/pois/:id/enrich` |
+| 瀏覽器爬 Google Maps 詳情頁手動抽 | `POST /api/pois/:id/enrich` |
 | WebSearch「POI 名稱 營業時間」 | 同上 |
 | LLM 直接打 Google Place Details API（key 暴露 + quota 失控） | 同上（透過 backend 統一管理 quota） |
 | `PATCH /pois/:id` 手動寫 hours/address/phone | enrich 自動處理（除非用戶要 manual override） |
 
-`/browse` Google Maps 對未登入訪客限制了 hours panel（只看到當日），且 raw text 抽取易被相鄰元素污染。WebSearch 摘要雖然偶爾完整，但聚合多 source 結果不一致。**只有 enrich endpoint 拿到 Google Place Details API 的權威結構化資料**。
+瀏覽器開 Google Maps 對未登入訪客限制了 hours panel（只看到當日），且 raw text 抽取易被相鄰元素污染。WebSearch 摘要雖然偶爾完整，但聚合多 source 結果不一致。**只有 enrich endpoint 拿到 Google Place Details API 的權威結構化資料**。
 
 ## Google Maps 驗證（鐵律）
 
