@@ -23,7 +23,6 @@
 | 品質規則單一來源 | ✅ | R0-R18 定義在 tp-quality-rules，其他 skill 引用 |
 | 搜尋策略單一來源 | ✅ | googleRating 策略定義在 tp-shared + tp-search-strategies |
 | 共用修改流程 | ✅ | tp-shared「行程修改共用步驟」被 tp-edit + tp-request 引用 |
-| Doc 連動規則 | ✅ | 定義在 tp-shared，被 tp-edit + tp-request + tp-rebuild 引用 |
 | travel 語意 | ✅ | 定義在 tp-shared，語意一致 |
 | Claude ↔ Gemini 同步 | ✅ | 14 個 skill 已同步（2026-04-01） |
 

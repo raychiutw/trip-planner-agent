@@ -232,7 +232,6 @@ V2 cutover：拔掉 mode/intent matrix。LLM 直接依 message 語意判斷該�
       > ⚠️ **POI 語意歸屬檢查（鐵律）**：修改前必須確認 POI 所掛的 entry title 語意正確。早餐 POI 必須掛在「早餐」entry 下，不得掛在「出發」「景點」等不相關 entry。若發現 POI 掛錯 entry，須先建立正確 entry 再搬移 POI。僅確認 sort_order 不夠，必須同時確認 entry 歸屬。
    f. **location 座標（鐵律）**：新增或替換景點/餐廳時，用 Google Maps 查 lat/lng，PATCH entry 的 location。規則見 tp-shared/references.md §1b
    f2. **travel 重算（鐵律，v2.24.0+）**：結構動完（插入/移除/替換 entry 或 sort_order=0 餐廳變動）後，呼叫 `POST /api/trips/{tripId}/recompute-travel?day={受影響天}` 讓 backend 跑 1km gate + Google Routes 寫 segments。**不手動算 travel**。規則見 tp-shared/references.md §4
-   f3. **Doc 連動（鐵律）**：規則見 tp-shared/references.md
    g. 執行 tp-check 精簡 report：輸出 `tp-check: 🟢 N  🟡 N  🔴 N`
    h. 通過 → 回覆並完成請求（見下方「回覆寫入方法」）
    i. 失敗 → 回覆並完成（見下方「回覆寫入方法」）
@@ -265,13 +264,8 @@ POI 查無 → reply「找不到該景點 X，請提供更明確的名稱或地�
 **Step 2. find-or-create pois master**：
 
 ```bash
-# 既有？
-curl -s "$TRIPLINE_API_URL/api/pois?place_id=$PLACE_ID" \
-  -H "Authorization: Bearer $TRIPLINE_API_TOKEN"
-# → { pois: [{ id, name, ... }] } 或 []
-
-# 不存在 → POST 建（pois client 端 endpoint；或走 findOrCreatePoi via /trip-pois，但 favorites 不需 entry）
-curl -s -X POST "$TRIPLINE_API_URL/api/pois" \
+# 命中既有或新建都回 200 { id }（name、type 必填）
+curl -s -X POST "$TRIPLINE_API_URL/api/pois/find-or-create" \
   -H "Authorization: Bearer $TRIPLINE_API_TOKEN" \
   -H "Content-Type: application/json" \
   -d '{"name":"美麗海水族館","type":"attraction","place_id":"ChIJxxx","lat":26.6943,"lng":127.8775,"source":"ai"}'

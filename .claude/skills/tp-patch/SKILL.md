@@ -15,7 +15,7 @@ API 設定見 `tp-shared/references.md`。
 ```
 
 - `--target`（必填）：`hotel` | `restaurant` | `shopping` | `parking` | `entry` | `all`
-- `--field`（必填）：`rating` | `address` | `phone` | `hours` | `location` | `all`（migration 0045 後 pois 表欄位 `google_rating` 已 rename 為 `rating`、`maps` 已 DROP。**PATCH /api/pois Body 必須用 `rating`，不接受 `google_rating` 別名** — 白名單只認 `rating`，舊欄名會被 silent drop 導致 400「無有效欄位可更新」。）
+- `--field`（必填）：`rating` | `address` | `phone` | `hours` | `location` | `all`（migration 0045 後 pois 表欄位 `google_rating` 已 rename 為 `rating`、`maps` 已 DROP。**PATCH /api/pois/{id} Body 必須用 `rating`，不接受 `google_rating` 別名** — 白名單只認 `rating`，舊欄名會被 silent drop 導致 400「無有效欄位可更新」。）
 - `--trips`（選填）：逗號分隔的行程 tripId，預設為所有行程
 - `--dry-run`（選填）：只輸出缺漏報告，不修改資料
 
@@ -43,7 +43,7 @@ POI 欄位規格見 `tp-shared/references.md`（v2.29.0 後：`pois` master vs `
 
 6. 依欄位類型選擇查詢策略：
 
-   **rating → 查詢策略見 tp-shared/references.md「googleRating 查詢策略」**（enrich endpoint 優先，WebSearch 僅做 fallback；PATCH /api/pois Body 用 `{ rating: X.X }`）
+   **rating → 查詢策略見 tp-shared/references.md「googleRating 查詢策略」**（enrich endpoint 優先，WebSearch 僅做 fallback；PATCH /api/pois/{id} Body 用 `{ rating: X.X }`）
 
    **address / phone → WebSearch 即可**
    - 搜尋 "{POI name} 住所" 或 "{POI name} 地址"

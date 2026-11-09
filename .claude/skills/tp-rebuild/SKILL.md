@@ -43,7 +43,6 @@ API 設定、呼叫格式、Windows encoding 注意事項見 tp-shared/reference
    - **覆寫整天**（結構性問題）：PUT `/api/trips/{tripId}/days/{N}`
    - **修改 POI master 客觀欄位（hours/price/rating/address/phone）**：`PATCH /api/pois/{poiId}` 或 `POST /api/pois/{poiId}/enrich`（首選）。**v2.29.0 後 `PATCH /trip-pois/:tpid` endpoint 已不存在 — `trip_pois` 整表 DROPPED**
    - **修改 entry × POI 結構（master swap、加 alternate、刪 alternate、重排）**：見 tp-shared/references/modify-steps.md §3 — `PATCH /entries/:eid/master` / `POST /entries/:eid/alternates` / `DELETE alternates/:poiId` / `PATCH alternates/reorder`
-   - **更新 doc**（checklist/backup/suggestions）：PUT `/api/trips/{tripId}/docs/{type}`（doc 結構規格見 tp-shared/references.md「Doc 結構規格」）
 
    所有寫入操作須帶認證 headers（呼叫格式見 tp-shared/references.md）。
 5. **location 座標檢查（鐵律）**：檢查所有實體地點 entry 是否有 lat/lng 座標。缺座標的 entry 用 Google Maps 查詢 `maps` 欄位文字取得 lat/lng，PATCH 回填。規則見 tp-shared/references.md §1b
@@ -53,7 +52,7 @@ API 設定、呼叫格式、Windows encoding 注意事項見 tp-shared/reference
     - 若 Day N 目前的 `timeline[0]` 已是早餐或景點，保留原 entry（往後順延），新插入的 check-out entry 放 index 0
     - 插入後立即在最後 step 6 一併 recompute
 6. **travel 重算（鐵律，v2.24.0+）**：所有結構修正完成後，呼叫 `POST /api/trips/{tripId}/recompute-travel?day=all` 一次。Backend 跑 1km gate Haversine（≤1km walking、>1km driving）+ Google Routes API + 寫 `trip_segments`；`mode='transit'` 既有 segment 不覆寫；同時 trip-wide prune 不再相鄰的幽靈段。**不再手動 PATCH `travel_type/desc/min`** — segments 為 SoT。規則見 tp-shared/references.md §4
-7. **Doc 連動（鐵律）**：檢視所有 5 種 doc（checklist/backup/suggestions/flights/emergency），更新與修正內容不一致的部分（規則見 tp-shared/references.md「Doc 連動規則」）
+7. （已退役）Doc 連動步驟已移除：trip_docs 於 2026-07-28 退役，不再檢視或更新 doc
 8. **tp-check（after-fix）**：執行完整模式 report，確認修正結果
 9. 不自動 commit（資料已直接寫入 D1 database）
 

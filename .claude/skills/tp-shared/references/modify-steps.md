@@ -80,11 +80,9 @@ POI 各 type 必填/建議欄位見 `references/poi-spec.md`。
 | 修改 pois master 客觀欄位 | `PATCH /api/pois/{poiId}` 或 `POST /api/pois/{poiId}/enrich` | hours / price / rating / address / phone 等客觀屬性；enrich 自動補 Google Place Details |
 | 重算 travel | `POST /api/trips/{tripId}/recompute-travel?day=N\|all` | 結構動完後**呼叫此端點**取代手動計算。1km gate + Google Routes + 寫 `trip_segments`。即使 `day=N`，也會 trip-wide prune 非現行相鄰對的幽靈段；Routes compute 仍只跑 scoped day |
 | 手動覆寫 segment | `PATCH /api/trips/{tripId}/segments/{sid}` | 罕用（通常 user 從 UI TravelPill dialog 觸發）。body: `{mode: 'driving' \| 'walking' \| 'transit', min?: 0-1440}`（transit 必填 min）。`mode='transit'` 表示手填分鐘，後續 recompute 不覆寫 |
-| 更新 doc | `PUT /api/trips/{tripId}/docs/{type}` | doc 結構見 `references/doc-spec.md` |
 
-### 4. Doc 連動 + travel 重算
+### 4. travel 重算
 
-- **Doc 連動（鐵律）**：每次修改後檢視 5 種 doc（checklist/backup/suggestions/flights/emergency），更新不一致內容。規則見 `references/doc-spec.md`。
 - **travel 重算（鐵律）** — v2.24.0 起 backend 跑 1km gate + Google Routes 自動算。以下情況須呼叫 `POST /api/trips/{tripId}/recompute-travel?day=N`（單天）或 `?day=all`（整 trip）：
   1. **插入 / 移除 / 移動 entry** — 前後 entry 的 from→to 對變了
   2. **替換 entry 地點 / 改 location 座標** — 景點換了位置，距離變
