@@ -20,7 +20,7 @@ export interface CronEnv {
   clientSecret: string;
 }
 
-const DEFAULT_API = 'https://trip-planner-dby.pages.dev';
+const DEFAULT_API = 'https://trip-planner-api-production.lean-lean.workers.dev';
 const REFRESH_LEADTIME_SEC = 60;
 
 /** Load TRIPLINE_API_URL + TRIPLINE_API_CLIENT_ID/SECRET from env then .env.local fallback.
@@ -33,7 +33,7 @@ export function loadCronEnv(): CronEnv {
   })();
   // 全 repo 唯一的 .env.local parser（scripts/lib/load-env.js）：支援跨多行值、去引號、驗 key。
   const map = new Map<string, string>(Object.entries(envLoader.parseEnv(raw)));
-  // TRIPLINE_API_BASE = CF Pages deployment (admin endpoints + new v2.23 endpoints).
+  // TRIPLINE_API_BASE = 新 api（Cloudflare Worker；舊入口 Pages /api/* 已退役，trip-planner#1627）。
   // TRIPLINE_API_URL = mac mini Tailscale funnel (legacy /api routes only) — DO NOT USE.
   const apiUrl = (
     process.env.TRIPLINE_API_BASE ||

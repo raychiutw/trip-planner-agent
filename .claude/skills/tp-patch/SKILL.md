@@ -29,7 +29,7 @@ POI 欄位規格見 `tp-shared/references.md`（v2.29.0 後：`pois` master vs `
 
 1. 取得目標行程清單：
    ```bash
-   curl -s "https://trip-planner-dby.pages.dev/api/trips?all=1" \
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips?all=1" \
      -H "Authorization: Bearer $TRIPLINE_API_TOKEN" \
    ```
 2. 對每個行程讀取所有天資料，收集所有 POI（含 poi_id）和 entry（含 entry_id）
@@ -73,7 +73,7 @@ POI 欄位規格見 `tp-shared/references.md`（v2.29.0 後：`pois` master vs `
      -H "Authorization: Bearer $TRIPLINE_API_TOKEN" \
      -H "Content-Type: application/json" \
      -d '{"location": "[{\"name\":\"...\",\"lat\":...,\"lng\":...,\"geocode_status\":\"ok\"}]"}' \
-     "https://trip-planner-dby.pages.dev/api/trips/{tripId}/entries/{entryId}"
+     "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}/entries/{entryId}"
    ```
 
    curl 模板見 `tp-shared/references.md`（Windows encoding：用 node writeFileSync + --data @file）。

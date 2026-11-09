@@ -129,7 +129,7 @@ TRIPLINE_API_TOKEN=$(node scripts/lib/get-tripline-token.js)
    ```bash
    # 一般模式（service token）：
    curl -s -H "Authorization: Bearer $TRIPLINE_API_TOKEN" \
-        "https://trip-planner-dby.pages.dev/api/requests?status=processing"
+        "https://trip-planner-api-production.lean-lean.workers.dev/api/requests?status=processing"
    # Trip-scoped 模式（$TRIPLINE_RESTRICT_TRIP 有值）→ 必帶 tripId：
    #   ...?status=processing&tripId=$TRIPLINE_RESTRICT_TRIP
    ```
@@ -156,7 +156,7 @@ curl -s -X PATCH \
   -H "Authorization: Bearer $TRIPLINE_API_TOKEN" \
   -H "Content-Type: application/json" \
   --data @/tmp/status.json \
-  "https://trip-planner-dby.pages.dev/api/requests/{requestId}"
+  "https://trip-planner-api-production.lean-lean.workers.dev/api/requests/{requestId}"
 ```
 
 ### 3b. 解析 metadata
@@ -217,9 +217,9 @@ V2 cutover：拔掉 mode/intent matrix。LLM 直接依 message 語意判斷該�
    a. 讀取行程資料：
       ```bash
       # 讀取 meta
-      curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}"
+      curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}"
       # 讀取受影響的天（依請求內容判斷）
-      curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}/days/{dayNum}"
+      curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}/days/{dayNum}"
       ```
    b. 依請求 text 內容**局部修改**對應資料（只改 text 描述的部分，不全面重跑 R0-R18）
    c. **Google Maps 驗證（鐵律）**：新增或替換 POI 前必須先確認 Google Maps 上存在，查不到 = 無效，不得新增（見 tp-search-strategies）。

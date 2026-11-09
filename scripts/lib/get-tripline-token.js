@@ -8,7 +8,7 @@
  *
  *   const { getToken } = require('./lib/get-tripline-token');
  *   const token = await getToken();
- *   const res = await fetch('https://trip-planner-dby.pages.dev/api/foo', {
+ *   const res = await fetch('https://trip-planner-api-production.lean-lean.workers.dev/api/foo', {
  *     headers: { 'Authorization': `Bearer ${token}` }
  *   });
  *
@@ -20,7 +20,7 @@
  *   TRIPLINE_API_CLIENT_SECRET  — corresponding secret (one-time output at registration)
  *
  * Env (optional):
- *   TRIPLINE_API_BASE     — defaults to https://trip-planner-dby.pages.dev
+ *   TRIPLINE_API_BASE     — defaults to https://trip-planner-api-production.lean-lean.workers.dev
  *   TRIPLINE_API_SCOPES   — space-separated scopes; defaults to client's allowed_scopes
  *
  * Cache: /tmp/tripline-cli-token.json (per-uid). Refreshed when within 60s of expiry.
@@ -40,7 +40,7 @@ const os = require('os');
 const { loadEnvLocal } = require('./load-env');
 loadEnvLocal();
 
-const DEFAULT_BASE = 'https://trip-planner-dby.pages.dev';
+const DEFAULT_BASE = 'https://trip-planner-api-production.lean-lean.workers.dev';
 const REFRESH_LEADTIME_SEC = 60; // refresh 1min before actual expiry to avoid edge races
 
 function cachePath() {

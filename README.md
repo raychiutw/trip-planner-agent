@@ -62,3 +62,14 @@ Funnel 流量經 Tailscale → Caddy 轉進來，對端永遠是 loopback，真�
 
 所有 secret 從 `.env.local` 載入（不進 repo）。`TELEGRAM_CHAT_ID`、`ADMIN_EMAIL_OVERRIDE`（provision 腳本用）等
 個人識別資訊一律由環境提供，程式碼不內建預設值。
+
+### API 入口（TRIPLINE_API_BASE）
+
+所有腳本與 `.claude/skills/tp-*` 的 API base 預設是新 api `https://trip-planner-api-production.lean-lean.workers.dev`
+（trip-planner#1627 退役舊入口 `trip-planner-dby.pages.dev/api`；兩者共用 production D1）。
+`TRIPLINE_API_BASE` 仍可覆蓋預設值（`.env.local` 或環境變數）。
+
+- 程式預設值改了，**但 Mac mini 的 `~/.tripline-agent/.env.local` 若已寫死舊的 `TRIPLINE_API_BASE` 仍會繼續打舊入口**：
+  要把它改成新 api（或直接刪掉那一行用預設），再跑 `deploy.sh` 重新部署才生效。
+- `tp-request-mcp-server.js` 的 host 刻意不可由環境覆蓋，改預設就是改程式。
+- `scripts/daily-check.js` 的 route health 與 `daily-report` 的 `SITE_URL` 探的是**網站**（`trip-planner-dby.pages.dev`），不是 API，所以不改。

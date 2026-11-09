@@ -5,12 +5,11 @@ Phase 1 第一步在 `/tmp/api-helper.js` 建立共用 helper，後續所有 API
 ```js
 const https = require('https');
 const TRIP_ID = '{tripId}';  // Phase 0 產生後填入
-const BASE = 'trip-planner-dby.pages.dev';
+const BASE = 'trip-planner-api-production.lean-lean.workers.dev';
 const HEADERS = {
   'Authorization': process.env.TRIPLINE_API_TOKEN,
   'Authorization': process.env.TRIPLINE_API_TOKEN,
   'Content-Type': 'application/json',
-  'Origin': 'https://trip-planner-dby.pages.dev',
 };
 function apiCall(method, path, body) {
   return new Promise((resolve, reject) => {

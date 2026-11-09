@@ -111,7 +111,7 @@ OCC token `entryPoisVersion`（integer counter on `trip_entries.entry_pois_versi
 ```bash
 TOKEN=$(cat /tmp/admin-token.txt)
 # 取得 1 hour TTL admin token via OAuth client_credentials:
-#   curl -X POST https://trip-planner-dby.pages.dev/api/oauth/token \
+#   curl -X POST https://trip-planner-api-production.lean-lean.workers.dev/api/oauth/token \
 #     -H "Content-Type: application/x-www-form-urlencoded" \
 #     -d "grant_type=client_credentials&client_id=$CID&client_secret=$CSEC&scope=admin"
 
@@ -125,7 +125,7 @@ WHERE place_id IS NOT NULL AND status='active'
 # 對每筆 POST enrich
 for pid in 458 467 489 ...; do
   curl -s -X POST -H "Authorization: Bearer $TOKEN" \
-    "https://trip-planner-dby.pages.dev/api/pois/$pid/enrich"
+    "https://trip-planner-api-production.lean-lean.workers.dev/api/pois/$pid/enrich"
   sleep 0.6  # rate limit (autoplan T11 50/day cap built into pois-due-refresh endpoint)
 done
 ```

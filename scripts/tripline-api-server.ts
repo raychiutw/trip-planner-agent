@@ -44,7 +44,7 @@ const PROJECT_DIR = process.env.PROJECT_DIR || join(import.meta.dir, '..');
 const LOG_DIR = join(PROJECT_DIR, 'scripts', 'logs', 'api-server');
 const TOKEN_HELPER = join(PROJECT_DIR, 'scripts', 'lib', 'get-tripline-token.js');
 // v2.55.56: prod API base — peek pending requests + downscope the user token to one trip.
-const API_BASE = process.env.TRIPLINE_API_BASE || 'https://trip-planner-dby.pages.dev';
+const API_BASE = process.env.TRIPLINE_API_BASE || 'https://trip-planner-api-production.lean-lean.workers.dev';
 
 // --- Mailer config (Gmail SMTP) ---
 const GMAIL_USER = process.env.GMAIL_USERNAME || '';

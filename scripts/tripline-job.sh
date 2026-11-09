@@ -41,7 +41,7 @@ TOKEN=$(node "$PROJECT_DIR/scripts/lib/get-tripline-token.js" 2>>"$LOG_FILE") ||
 # 1. 卡住偵測：processing 超過 STALE_THRESHOLD_MIN 分鐘 → 標記 failed
 PROCESSING=$(curl -sf \
   -H "Authorization: Bearer $TOKEN" \
-  "https://trip-planner-dby.pages.dev/api/requests?status=processing" 2>&1) || {
+  "https://trip-planner-api-production.lean-lean.workers.dev/api/requests?status=processing" 2>&1) || {
   log "查詢 processing 失敗"
   PROCESSING="[]"
 }
@@ -68,10 +68,9 @@ if [ -n "$STALE_IDS" ]; then
     log "  卡住偵測: id=$rid → failed"
     curl -sf -X PATCH \
       -H "Authorization: Bearer $TOKEN" \
-      -H "Origin: https://trip-planner-dby.pages.dev" \
       -H "Content-Type: application/json" \
       -d '{"status":"failed","processed_by":"job"}' \
-      "https://trip-planner-dby.pages.dev/api/requests/$rid" > /dev/null 2>&1 && \
+      "https://trip-planner-api-production.lean-lean.workers.dev/api/requests/$rid" > /dev/null 2>&1 && \
       log "  id=$rid → failed 成功" || log "  id=$rid → failed 失敗"
   done <<< "$STALE_IDS"
 else

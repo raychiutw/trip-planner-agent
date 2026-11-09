@@ -13,13 +13,13 @@
  *
  * 環境變數：
  *   TRIPLINE_API_CLIENT_ID + TRIPLINE_API_CLIENT_SECRET （從 .env.local 自動讀）
- *   TRIPLINE_API_BASE （default https://trip-planner-dby.pages.dev）
+ *   TRIPLINE_API_BASE （default https://trip-planner-api-production.lean-lean.workers.dev）
  */
 'use strict';
 
 const { getToken } = require('./lib/get-tripline-token');
 
-const BASE = process.env.TRIPLINE_API_BASE || 'https://trip-planner-dby.pages.dev';
+const BASE = process.env.TRIPLINE_API_BASE || 'https://trip-planner-api-production.lean-lean.workers.dev';
 const args = process.argv.slice(2);
 const DRY_RUN = !args.includes('--no-dry-run');
 const MARKER = (args.find((a) => a.startsWith('--marker=')) || '--marker=TEST_AUTO_UPDATE_PROBE').slice(9);

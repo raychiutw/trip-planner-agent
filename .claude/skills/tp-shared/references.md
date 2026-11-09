@@ -4,7 +4,7 @@
 
 ## API 設定
 
-- **Base URL**: `https://trip-planner-dby.pages.dev`
+- **Base URL**: `https://trip-planner-api-production.lean-lean.workers.dev`
 - **認證**: Service Token headers（寫入操作必填）
   - `Authorization`: `$TRIPLINE_API_TOKEN`
   - `Authorization`: `$TRIPLINE_API_TOKEN`
@@ -18,9 +18,8 @@ node -e "require('fs').writeFileSync('/tmp/{filename}.json', JSON.stringify({...
 curl -s -X {METHOD} \
   -H "Authorization: Bearer $TRIPLINE_API_TOKEN" \
   -H "Content-Type: application/json" \
-  -H "Origin: https://trip-planner-dby.pages.dev" \
   --data @/tmp/{filename}.json \
-  "https://trip-planner-dby.pages.dev/api/{endpoint}"
+  "https://trip-planner-api-production.lean-lean.workers.dev/api/{endpoint}"
 ```
 
 ## 參考子檔案
