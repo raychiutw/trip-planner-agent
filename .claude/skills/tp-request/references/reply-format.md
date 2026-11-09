@@ -11,7 +11,7 @@ curl -s -X PATCH \
   -H "Authorization: Bearer $TRIPLINE_API_TOKEN" \
   -H "Content-Type: application/json" \
   --data @/tmp/reply.json \
-  "https://trip-planner-dby.pages.dev/api/requests/{requestId}"
+  "https://trip-planner-api-production.lean-lean.workers.dev/api/requests/{requestId}"
 ```
 
 ## 過長 reply

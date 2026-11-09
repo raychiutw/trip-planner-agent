@@ -15,7 +15,7 @@
  *   bun run backfill:google -- --limit=10  # smoke test
  *
  * Required env (.env.local on dev / ~/.tripline-cron/.env on mac mini):
- *   TRIPLINE_API_URL          (e.g. https://trip-planner-dby.pages.dev)
+ *   TRIPLINE_API_URL          (e.g. https://trip-planner-api-production.lean-lean.workers.dev)
  *   TRIPLINE_API_TOKEN        (Bearer token for admin endpoints)
  *
  * Telegram report on completion:

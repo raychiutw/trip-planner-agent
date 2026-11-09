@@ -57,5 +57,5 @@
     -H "Content-Type: application/json" \
     -H "X-Request-Scope: companion" \
     --data @/tmp/poi-update.json \
-    "https://trip-planner-dby.pages.dev/api/pois/{poiId}"
+    "https://trip-planner-api-production.lean-lean.workers.dev/api/pois/{poiId}"
   ```

@@ -93,7 +93,7 @@ if ! grep -q "tp_mint_token()" "$PATCHED_TMP"; then
       print "# 一個 1 hr access_token；run 完該 token 會自然 expire — 不存盤。"
       print "tp_mint_token() {"
       print "  local resp"
-      print "  resp=$(curl -sf -X POST \"https://trip-planner-dby.pages.dev/api/oauth/token\" \\"
+      print "  resp=$(curl -sf -X POST \"https://trip-planner-api-production.lean-lean.workers.dev/api/oauth/token\" \\"
       print "    -d \"grant_type=client_credentials\" \\"
       print "    -d \"client_id=${TRIPLINE_API_CLIENT_ID}\" \\"
       print "    -d \"client_secret=${TRIPLINE_API_CLIENT_SECRET}\")"
@@ -196,7 +196,7 @@ if [ -z "$TRIPLINE_API_CLIENT_ID" ] || [ -z "$TRIPLINE_API_CLIENT_SECRET" ]; the
   echo "  ${RED}ABORT${RESET} TRIPLINE_API_CLIENT_ID/SECRET missing from $ENV_PATH"
   exit 5
 fi
-SMOKE_RESP="$(curl -sf -X POST 'https://trip-planner-dby.pages.dev/api/oauth/token' \
+SMOKE_RESP="$(curl -sf -X POST 'https://trip-planner-api-production.lean-lean.workers.dev/api/oauth/token' \
   -d "grant_type=client_credentials" \
   -d "client_id=${TRIPLINE_API_CLIENT_ID}" \
   -d "client_secret=${TRIPLINE_API_CLIENT_SECRET}" \

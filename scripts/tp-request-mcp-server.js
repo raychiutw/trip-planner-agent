@@ -33,7 +33,7 @@
 // Hardcoded prod host. Intentionally NOT env-overridable (auditor MEDIUM:
 // settings/host must not be looseneable by the environment the agent runs in).
 // Tests exercise the pure builders + a mock fetch; they never need to change it.
-const API_BASE = 'https://trip-planner-dby.pages.dev';
+const API_BASE = 'https://trip-planner-api-production.lean-lean.workers.dev';
 const PROTOCOL_VERSION = '2024-11-05';
 const SERVER_NAME = 'tripline';
 const SERVER_VERSION = '1.0.0';

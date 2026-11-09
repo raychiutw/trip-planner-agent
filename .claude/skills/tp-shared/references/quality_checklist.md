@@ -17,7 +17,7 @@
 
 | 項目 | 狀態 | 備註 |
 |------|:---:|------|
-| 單一 API base URL | ✅ | 統一 `trip-planner-dby.pages.dev`，定義在 tp-shared |
+| 單一 API base URL | ✅ | 統一 `trip-planner-api-production.lean-lean.workers.dev`，定義在 tp-shared |
 | 認證 headers 定義 | ✅ | Authorization/Secret 定義在 tp-shared |
 | Windows encoding 規避 | ✅ | curl + 中文 → node writeFileSync + --data @file |
 | 品質規則單一來源 | ✅ | R0-R18 定義在 tp-quality-rules，其他 skill 引用 |

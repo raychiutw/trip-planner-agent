@@ -22,11 +22,11 @@ user-invocable: true
 1. 讀取行程資料：
    ```bash
    # 讀取 meta
-   curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}"
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}"
    # 讀取所有天概要（取得天數清單）
-   curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}/days"
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}/days"
    # 依序讀取每天完整資料
-   curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}/days/{N}"
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}/days/{N}"
    ```
 2. 逐項檢查 R0-R18 品質規則（API 回傳 JSON，直接驗證 JSON 欄位）
 3. 依檢查結果輸出 report（完整模式或精簡模式）

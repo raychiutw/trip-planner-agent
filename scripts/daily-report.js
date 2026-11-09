@@ -23,6 +23,8 @@ var fs = require('fs');
 var path = require('path');
 var REPORT_EMAIL = process.env.REPORT_EMAIL;
 var SITE_URL = process.env.SITE_URL || 'https://trip-planner-dby.pages.dev';
+// API 與網站已分家：checkLinks 打 API 走 API_BASE（與 get-tripline-token 同一個 TRIPLINE_API_BASE），SITE_URL 只給 PageSpeed 量網站。
+var API_BASE = process.env.TRIPLINE_API_BASE || 'https://trip-planner-api-production.lean-lean.workers.dev';
 var PAGESPEED_API_KEY = process.env.PAGESPEED_API_KEY || '';
 
 // ── D1 REST API helper ──────────────────────────────────────────
@@ -201,7 +203,7 @@ function createReportSources(io = {}) {
     var authHeaders = { Authorization: 'Bearer ' + token };
 
     // 1. 取得所有行程
-    var tripsRes = await fetch(SITE_URL + '/api/trips', { headers: authHeaders });
+    var tripsRes = await fetch(API_BASE + '/api/trips', { headers: authHeaders });
     if (!tripsRes.ok) throw new Error('Failed to fetch trips: ' + tripsRes.status);
     var trips = await tripsRes.json();
 
@@ -215,7 +217,7 @@ function createReportSources(io = {}) {
     var failures = [];
     var completedTrips = 0;
     var daysResults = await Promise.allSettled(publishedTripIds.map(async function (id) {
-      var response = await fetch(SITE_URL + '/api/trips/' + id + '/days', { headers: authHeaders });
+      var response = await fetch(API_BASE + '/api/trips/' + id + '/days', { headers: authHeaders });
       if (!response.ok) throw new Error('Days query failed: ' + response.status);
       var days = await response.json();
       if (!Array.isArray(days)) throw new Error('Invalid days response');

@@ -23,11 +23,11 @@ API 設定、呼叫格式、Windows encoding 注意事項見 tp-shared/reference
 1. 讀取行程所有資料：
    ```bash
    # 讀取 meta
-   curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}"
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}"
    # 讀取所有天概要
-   curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}/days"
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}/days"
    # 依序讀取每天完整資料
-   curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}/days/{N}"
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}/days/{N}"
    ```
 2. **tp-check（before-fix）**：執行完整模式 report，顯示修正前的品質狀態
 3. 逐項檢查 R0-R18 品質規則，修正不合格的資料。搜尋 POI 資料時若符合「歇業/不存在」條件（見 tp-shared/references.md §5），依新流程清理（`DELETE /entries/:eid/alternates/:poiId` 或 swap master，必要時 admin `DELETE /api/pois/:id`）

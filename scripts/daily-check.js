@@ -38,7 +38,7 @@ function createCheckSources(io = {}) {
   var SENTRY_TOKEN = env('SENTRY_AUTH_TOKEN');
   var SENTRY_ORG = env('SENTRY_ORG');
   var SENTRY_PROJECT = env('SENTRY_PROJECT');
-  var TRIPLINE_API_BASE = env('TRIPLINE_API_BASE') || 'https://trip-planner-dby.pages.dev';
+  var TRIPLINE_API_BASE = env('TRIPLINE_API_BASE') || 'https://trip-planner-api-production.lean-lean.workers.dev';
   var googleMapsTokenHelper = io.getToken ? { getToken: io.getToken } : (() => {
     try { return require('./lib/get-tripline-token'); } catch (_) { return null; }
   })();

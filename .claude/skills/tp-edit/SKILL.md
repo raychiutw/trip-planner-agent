@@ -22,9 +22,9 @@ API 設定、呼叫格式、Windows encoding 注意事項見 tp-shared/reference
 1. 讀取行程資料：
    ```bash
    # 讀取 meta（取得基本資訊、countries 等）
-   curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}"
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}"
    # 讀取受影響的天
-   curl -s "https://trip-planner-dby.pages.dev/api/trips/{tripId}/days/{dayNum}"
+   curl -s "https://trip-planner-api-production.lean-lean.workers.dev/api/trips/{tripId}/days/{dayNum}"
    ```
 2. 依自然語言描述**局部修改**對應資料（只改描述涉及的部分）
 3. **Google Maps 驗證（鐵律）**：新增或替換 POI 前必須先確認 Google Maps 上存在，查不到 = 無效，不得新增（見 tp-search-strategies）。若發現既有 POI 無效，依 tp-shared/references.md §5 執行清理（刪 alternates / swap master / 換 hotel；必要時 admin DELETE pois master）。

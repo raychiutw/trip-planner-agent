@@ -114,12 +114,12 @@ npx wrangler d1 execute trip-planner-db --remote --command \
 # 2. 若沒 place_id：先 search
 curl -s -G -H "Authorization: Bearer $TOKEN" \
   --data-urlencode "q=花織そば 沖縄" \
-  "https://trip-planner-dby.pages.dev/api/poi-search"
+  "https://trip-planner-api-production.lean-lean.workers.dev/api/poi-search"
 # → 拿到 place_id，PATCH 寫回 pois.place_id
 
 # 3. enrich
 curl -s -X POST -H "Authorization: Bearer $TOKEN" \
-  "https://trip-planner-dby.pages.dev/api/pois/$POI_ID/enrich"
+  "https://trip-planner-api-production.lean-lean.workers.dev/api/pois/$POI_ID/enrich"
 # → 自動寫 rating/address/phone/hours/business_status
 ```
 
@@ -137,7 +137,7 @@ PIDS=$(npx wrangler d1 execute trip-planner-db --remote --command "
 
 for pid in $PIDS; do
   curl -s -X POST -H "Authorization: Bearer $TOKEN" \
-    "https://trip-planner-dby.pages.dev/api/pois/$pid/enrich" \
+    "https://trip-planner-api-production.lean-lean.workers.dev/api/pois/$pid/enrich" \
     | grep -oE '"status":"[^"]*"'
   sleep 0.6  # rate limit
 done
