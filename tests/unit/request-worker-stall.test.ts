@@ -24,7 +24,8 @@ const row = (id: number, ageMin: number, tripId = 'trip-a') => ({
 
 type Queue = { processing: unknown[]; open: unknown[] };
 
-function setup(opts: { sessions?: string[]; startedFalse?: boolean; threshold?: number } = {}) {
+/** busy:true → 先讓另一個 tick 卡在 claude -p 裡佔住 /tp-request 鎖，之後的 tick 都回 busy。 */
+async function setup(opts: { busy?: boolean; startedFalse?: boolean; threshold?: number } = {}) {
   const queue: Queue = { processing: [], open: [] };
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     const m = /\/api\/requests\?status=(processing|open)&sort=asc&limit=1/.exec(url);
@@ -37,14 +38,12 @@ function setup(opts: { sessions?: string[]; startedFalse?: boolean; threshold?: 
     return new Response('{}', { status: 404 });
   });
   const alert = vi.fn();
-  const sessions = opts.sessions ?? [];
   const deps: WorkerDeps = {
     fetch: fetchMock as unknown as typeof fetch,
     apiBase: 'https://api.test',
     apiSecret: 'secret',
     getServiceToken: async () => 'svc',
     userTokenEnabled: (s) => s === '/tp-request',
-    tmux: { list: () => sessions.join('\n'), kill: vi.fn(), has: () => false },
     clock: { now: () => NOW },
     sleep: async () => undefined,
     pid: 1,
@@ -52,21 +51,26 @@ function setup(opts: { sessions?: string[]; startedFalse?: boolean; threshold?: 
     logError: vi.fn(),
     alert,
     containmentReady: () => true,
-    pane: { capture: () => '', sendKeys: () => undefined },
-    attachLog: vi.fn(),
-    runContainedPrint: vi.fn(async () => ({ ok: false, timedOut: false, started: !opts.startedFalse ? true : false })),
-    createPlainSession: vi.fn(async () => true),
+    runContainedPrint: vi.fn(() => opts.busy ? new Promise<never>(() => {}) : Promise.resolve({ ok: false, timedOut: false, started: !opts.startedFalse ? true : false })),
+    runTrustedPrint: vi.fn(async () => ({ ok: true, timedOut: false })),
     stallThresholdMs: opts.threshold,
   };
-  return { worker: createRequestWorker(deps), queue, alert, deps };
+  const worker = createRequestWorker(deps);
+  if (opts.busy) {
+    queue.open = [row(1, 0)];
+    void worker.tick('api');
+    await new Promise((r) => setTimeout(r, 0));
+    queue.open = [];
+    alert.mockClear();
+  }
+  return { worker, queue, alert, deps };
 }
 
-const BUSY = ['tripline-tp-request-1-1']; // hasActiveSession → tick 回 busy
 const stallCalls = (alert: ReturnType<typeof vi.fn>) => alert.mock.calls.filter((c) => c[0] === STALL_ALERT_KEY);
 
 describe('request-stall 告警', () => {
   it('worker 一直 busy、最老請求超過門檻 → 告警一次，訊息含編號／分鐘／行程／tick 結果', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY });
+    const { worker, queue, alert } = await setup({ busy: true });
     queue.open = [row(77, 45)];
     expect(await worker.tick('job')).toBe('busy');
     expect(stallCalls(alert)).toHaveLength(1);
@@ -80,14 +84,14 @@ describe('request-stall 告警', () => {
   });
 
   it('持續停滯多個 tick → 不重複告警', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY });
+    const { worker, queue, alert } = await setup({ busy: true });
     queue.open = [row(77, 45)];
     for (let i = 0; i < 5; i++) await worker.tick('job');
     expect(stallCalls(alert)).toHaveLength(1);
   });
 
   it('清單清空 → healthy 一次，之後不再發', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY });
+    const { worker, queue, alert } = await setup({ busy: true });
     queue.open = [row(77, 45)];
     await worker.tick('job');
     queue.open = [];
@@ -97,7 +101,7 @@ describe('request-stall 告警', () => {
   });
 
   it('最老請求回到門檻內（換成新請求）→ healthy', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY });
+    const { worker, queue, alert } = await setup({ busy: true });
     queue.open = [row(77, 45)];
     await worker.tick('job');
     queue.open = [row(78, 2)];
@@ -106,7 +110,7 @@ describe('request-stall 告警', () => {
   });
 
   it('未超過門檻 → 不告警，也不發 healthy', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY });
+    const { worker, queue, alert } = await setup({ busy: true });
     queue.open = [row(77, 19)];
     await worker.tick('job');
     await worker.tick('job');
@@ -114,7 +118,7 @@ describe('request-stall 告警', () => {
   });
 
   it('tick 失敗（claude -p 沒起來）且請求很老 → 告警並標示 failed', async () => {
-    const { worker, queue, alert } = setup({ startedFalse: true });
+    const { worker, queue, alert } = await setup({ startedFalse: true });
     queue.open = [row(5, 90)];
     expect(await worker.tick('job')).toBe('failed');
     const calls = stallCalls(alert);
@@ -124,7 +128,7 @@ describe('request-stall 告警', () => {
   });
 
   it('停擺後恢復：第一次 tick 就發現很老的 processing 請求 → 告警；用 processing 與 open 兩邊最老者', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY });
+    const { worker, queue, alert } = await setup({ busy: true });
     queue.processing = [row(10, 30)];
     queue.open = [row(11, 300)];
     await worker.tick('job');
@@ -135,7 +139,7 @@ describe('request-stall 告警', () => {
   });
 
   it('訊息不含請求內容或 email', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY });
+    const { worker, queue, alert } = await setup({ busy: true });
     queue.open = [row(77, 45)];
     await worker.tick('job');
     const msg = stallCalls(alert)[0]![2] as string;
@@ -146,14 +150,14 @@ describe('request-stall 告警', () => {
   });
 
   it('門檻可注入：stallThresholdMs 調小就在較短時間內告警', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY, threshold: 5 * MIN });
+    const { worker, queue, alert } = await setup({ busy: true, threshold: 5 * MIN });
     queue.open = [row(77, 6)];
     await worker.tick('job');
     expect(stallCalls(alert)).toHaveLength(1);
   });
 
   it('查詢隊列失敗（fetch 拋錯）→ 不改變告警狀態', async () => {
-    const { worker, queue, alert, deps } = setup({ sessions: BUSY });
+    const { worker, queue, alert, deps } = await setup({ busy: true });
     queue.open = [row(77, 45)];
     await worker.tick('job');
     (deps.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async () => { throw new Error('network'); });
@@ -162,7 +166,7 @@ describe('request-stall 告警', () => {
   });
 
   it('createdAt 缺漏或無法解析 → 略過，不誤報', async () => {
-    const { worker, queue, alert } = setup({ sessions: BUSY });
+    const { worker, queue, alert } = await setup({ busy: true });
     queue.open = [{ id: 1, tripId: 'trip-a' }, ];
     await worker.tick('job');
     queue.open = [{ id: 1, tripId: 'trip-a', createdAt: 'not-a-date' }];
@@ -171,7 +175,7 @@ describe('request-stall 告警', () => {
   });
 
   it('/tp-daily-check 的 tick 不做請求停滯檢查', async () => {
-    const { worker, queue, alert } = setup();
+    const { worker, queue, alert } = await setup();
     queue.open = [row(77, 45)];
     await worker.tick('job', '/tp-daily-check').catch(() => undefined);
     expect(stallCalls(alert)).toHaveLength(0);

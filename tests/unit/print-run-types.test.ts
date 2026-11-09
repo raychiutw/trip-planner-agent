@@ -7,12 +7,12 @@ import { describe, expect, it } from 'vitest';
  * （第三輪審查前就有一個 ChildProcess 的 stdout 可能為 null 的型別錯誤沒被發現），所以單獨用 tsc --strict 守住。
  */
 describe('print 模式模組的型別（tsc --strict）', () => {
-  it('print-run / request-worker / fail-pending / print-run-sweep 與 ChildProcess 相容性樣本都能通過 strict 編譯', () => {
+  it('print-run / trusted-print / request-worker / fail-pending / print-run-sweep 與 ChildProcess 相容性樣本都能通過 strict 編譯', () => {
     const r = spawnSync('npx', [
       'tsc', '--noEmit', '--ignoreConfig', '--skipLibCheck', '--strict', '--target', 'es2022', '--module', 'esnext',
       '--moduleResolution', 'bundler', '--types', 'node',
       'scripts/lib/print-run.ts', 'scripts/lib/request-worker.ts', 'scripts/lib/fail-pending-requests.ts',
-      'scripts/lib/print-run-sweep.ts', 'tests/unit/fixtures/print-run-compat.ts',
+      'scripts/lib/print-run-sweep.ts', 'scripts/lib/trusted-print.ts', 'tests/unit/fixtures/print-run-compat.ts',
     ], { encoding: 'utf-8', cwd: process.cwd() });
     expect(`${r.stdout}${r.stderr}`.replace(/^npm notice.*$/gm, '').trim()).toBe('');
     expect(r.status).toBe(0);

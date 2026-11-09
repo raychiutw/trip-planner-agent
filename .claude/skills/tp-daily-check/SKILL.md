@@ -8,7 +8,7 @@ user-invocable: true
 
 ## 排程
 
-由 `scripts/tripline-api-server.ts` 內建 cron 觸發（透過 ephemeral tmux session），工作目錄是 `~/.tripline-agent/app`。不需要、也不要在 Claude Desktop 另建 scheduled task，否則會重複觸發。
+由 `scripts/tripline-api-server.ts` 內建 cron 觸發（以 `claude -p` 執行），工作目錄是 `~/.tripline-agent/app`。不需要、也不要在 Claude Desktop 另建 scheduled task，否則會重複觸發。
 
 ## 步驟
 
@@ -94,22 +94,6 @@ Telegram 報告格式（有問題/全綠）和 Phase A/B 修復範圍詳見 `ref
 
 ## 環境需求
 
-- 由 `scripts/tripline-api-server.ts` 內建 cron 在每日 06:10 透過 ephemeral tmux session 觸發；user shell env 透過 `scripts/lib/load-env.mjs` 載入 `.env.local`
+- 由 `scripts/tripline-api-server.ts` 內建 cron 在每日 06:10 以 `claude -p` 觸發（行程結束即收尾，`TRIPLINE_API_TOKEN` 由環境變數傳入）；user shell env 透過 `scripts/lib/load-env.mjs` 載入 `.env.local`
 - `.env.local` 需有：`CLOUDFLARE_API_TOKEN`、`CF_ACCOUNT_ID`、`D1_DATABASE_ID`、`SENTRY_AUTH_TOKEN`、`SENTRY_ORG`、`SENTRY_PROJECT`、`TELEGRAM_BOT_HOME_TOKEN`（或 `TELEGRAM_BOT_TOKEN`）、`TELEGRAM_CHAT_ID`
 - Code fix 需要 git / npm / `gh`，以及 matt skill（diagnosing-bugs、tdd、code-review、pr；皆可自主呼叫）
-
-## Self-destruct（tmux 觸發 only — v2.31.3+）
-
-skill **任何 termination path 之最後一步必跑**（含 Phase A 全綠提早結束、Phase B 完成、中途 fatal error abort）：
-
-```bash
-# scripts/tripline-api-server.ts 內建 cron 透過 ephemeral tmux session 觸發本 skill 時
-# 會 inject TRIPLINE_TMUX_SESSION + TMUX_BIN env var。執行完砍 session 避免 orphan。
-# 手動 invoke（無 env var）→ skip。
-if [ -n "$TRIPLINE_TMUX_SESSION" ]; then
-  "${TMUX_BIN:-tmux}" kill-session -t "$TRIPLINE_TMUX_SESSION" || \
-    echo "[tp-daily-check] WARNING: kill-session failed for $TRIPLINE_TMUX_SESSION" >&2
-fi
-```
-
-> ⚠️ 在所有 Sentry / Telegram / GitHub Issue 動作完成、reply 寫入後執行。中途 kill 會打斷 in-flight curl。

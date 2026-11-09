@@ -17,10 +17,9 @@ import { join } from 'path';
 import nodemailer, { type Transporter } from 'nodemailer';
 import { makeMailHandler } from './lib/mailer-handler';
 import { computeNextDailyFire } from './lib/schedule-daily';
-import type { TmuxDeps } from './lib/tmux-pane';
+import { runTrustedPrint } from './lib/trusted-print';
 import {
   TP_AGENT_USER,
-  shSingleQuote,
   buildContainedShellCommand,
   buildMcpConfig,
 } from './lib/contained-spawn';
@@ -75,25 +74,15 @@ function logError(msg: string) {
 }
 
 // --- Token helper ---
-// v2.30.7: API server 只用 token helper 一次（mint 後 inject 到 tmux session env）。
+// v2.30.7: API server 只用 token helper 一次（mint 後以環境變數傳給 claude -p 子行程）。
 // queue drain + PATCH status 改由 /tp-request skill 自己做（curl + load-env.mjs）。
 const tokenHelper = require(TOKEN_HELPER) as {
   getToken: (opts?: { forceFresh?: boolean }) => Promise<string>;
   invalidateCache: () => void;
 };
-const TMUX_BIN = (() => {
-  const candidates = ['/opt/homebrew/bin/tmux', '/usr/local/bin/tmux', '/usr/bin/tmux'];
-  for (const p of candidates) {
-    try {
-      if (require('fs').existsSync(p)) return p;
-    } catch {}
-  }
-  return 'tmux'; // fallback — let spawnSync resolve via PATH
-})();
-
 // Phase 2 cron PATH 修：launchd PATH 不含 /opt/homebrew/bin，且 google-poi-refresh 舊
 // hardcode /Users/ray/.bun/bin/bun 已不存在（bun 移到 homebrew）、auth-cleanup 用裸 'node'
-// → 兩者 spawn ENOENT 沒在跑（api-server-stderr 2026-06-14/15）。仿 TMUX_BIN 偵測絕對路徑。
+// → 兩者 spawn ENOENT 沒在跑（api-server-stderr 2026-06-14/15）。偵測絕對路徑。
 const resolveBin = (candidates: string[], fallback: string): string => {
   for (const p of candidates) {
     try { if (require('fs').existsSync(p)) return p; } catch {}
@@ -112,17 +101,10 @@ const CLAUDE_BIN = '/Users/ray/.local/bin/claude';
 // Ray-manual (0a) precondition. Until (0a) is done, containmentReady() is false and
 // a restrict-token request FAILS CLOSED to a read-only service token (never runs the
 // write-capable token un-contained).
-// TP_AGENT_USER / CONTAINED_PATH / shSingleQuote / build* → ./lib/contained-spawn (pure, tested)
+// TP_AGENT_USER / CONTAINED_PATH / build* → ./lib/contained-spawn (pure, tested)
 const CONTAINED_SETTINGS_PATH = join(PROJECT_DIR, 'scripts', 'tp-request-contained', 'settings.json');
 const MCP_SERVER_PATH = join(PROJECT_DIR, 'scripts', 'tp-request-mcp-server.js');
 const CONTAINED_BASE_DIR = `/Users/${TP_AGENT_USER}/.tripline-contained`;
-const tmuxDeps: TmuxDeps = {
-  capture: (s) => spawnSync(TMUX_BIN, ['capture-pane', '-t', s, '-p'], { encoding: 'utf-8' }).stdout || '',
-  sendKeys: (s, keys) => { spawnSync(TMUX_BIN, ['send-keys', '-t', s, keys], { encoding: 'utf-8' }); },
-  sleep,
-  log,
-};
-
 // --- tp-request containment helpers ---
 
 const RUN_AS_AGENT_TIMEOUT_MS = 30_000;
@@ -298,42 +280,20 @@ async function runContainedPrint(
   }
 }
 
-/** best-effort: pipe session output to a scrubbed persistent log (shared by both paths). */
-function attachSessionLog(sessionName: string, skillCommand: string): void {
-  try {
-    const skillSlug = skillCommand.replace(/^\//, '').replace(/[^a-zA-Z0-9-]/g, '-');
-    const sessionLogDir = join(PROJECT_DIR, 'scripts', 'logs', skillSlug);
-    mkdirSync(sessionLogDir, { recursive: true });
-    const pipe = spawnSync(TMUX_BIN, [
-      'pipe-pane', '-t', sessionName, '-o',
-      `sed -E 's#[Bb]earer [A-Za-z0-9._~+/=-]+#Bearer <redacted>#g' >> '${join(sessionLogDir, `${sessionName}.log`)}'`,
-    ], { encoding: 'utf-8' });
-    if (pipe.status !== 0) logError(`tmux pipe-pane failed (non-blocking): ${pipe.stderr || ''}`);
-  } catch (err) {
-    logError(`session log pipe setup failed (non-blocking): ${err instanceof Error ? err.message : String(err)}`);
-  }
-}
-/**
- * #1264：worker 決策（peek → token → busy → spawn）在 scripts/lib/request-worker.ts，
- * 這裡只組裝真實 adapter：tmux 指令、fetch、時鐘、contained / plain spawn。
- */
-async function createPlainSession(sessionName: string, _skillCommand: string, token: string): Promise<boolean> {
-  const claudePath = CLAUDE_BIN;
-  const escapedToken = shSingleQuote(token);
-  const tmuxDir = TMUX_BIN.includes('/') ? TMUX_BIN.slice(0, TMUX_BIN.lastIndexOf('/')) : '';
-  const augmentedPath = [process.env.PATH || '', '/Users/ray/.local/bin', tmuxDir]
-    .filter(Boolean)
-    .join(':');
-  const create = spawnSync(TMUX_BIN, [
-    'new-session', '-d', '-s', sessionName, '-c', PROJECT_DIR,
-    `TRIPLINE_API_TOKEN='${escapedToken}' TRIPLINE_TMUX_SESSION='${sessionName}' TMUX_BIN='${TMUX_BIN}' PATH='${augmentedPath}' ${claudePath} --dangerously-skip-permissions --name '${sessionName}'`
-  ], { encoding: 'utf-8' });
-  if (create.status !== 0) {
-    logError(`tmux new-session failed (status=${create.status}): ${create.stderr || ''}`);
-    return false;
-  }
-
-  return true;
+/** 信任 skill（/tp-daily-check）的 `claude -p`：cwd 是 repo、service token 走環境變數、輸出脫敏後寫 scripts/logs/<skill>/<runName>.log。 */
+async function runTrustedPrintAdapter(runName: string, skillCommand: string, token: string): Promise<PrintRunResult> {
+  const logDir = join(PROJECT_DIR, 'scripts', 'logs', skillCommand.replace(/^\//, '').replace(/[^a-zA-Z0-9-]/g, '-'));
+  try { mkdirSync(logDir, { recursive: true }); } catch { /* best-effort log */ }
+  const logFile = join(logDir, `${runName}.log`);
+  return runTrustedPrint({
+    spawn: (file, args, o) => spawn(file, args, { ...o, stdio: ['ignore', 'pipe', 'pipe'] }),
+    claudeBin: CLAUDE_BIN,
+    cwd: PROJECT_DIR,
+    baseEnv: { ...process.env, PATH: [process.env.PATH || '', '/Users/ray/.local/bin'].filter(Boolean).join(':') },
+    token, skillCommand,
+    writeLog: (text) => appendFileSync(logFile, text, { mode: 0o600 }),
+    onSpawnError: (err) => logError(`${skillCommand} claude -p child error：${err.message}`),
+  });
 }
 
 const worker = createRequestWorker({
@@ -345,14 +305,6 @@ const worker = createRequestWorker({
     const flag = process.env.TP_REQUEST_USER_TOKEN;
     return (flag === '1' || flag === 'true') && skillCommand.trim() === '/tp-request';
   },
-  tmux: {
-    list: (format) => {
-      const r = spawnSync(TMUX_BIN, ['ls', '-F', format], { encoding: 'utf-8' });
-      return r.status === 0 ? (r.stdout || '') : null;
-    },
-    kill: (name) => { spawnSync(TMUX_BIN, ['kill-session', '-t', name]); },
-    has: (name) => spawnSync(TMUX_BIN, ['has-session', '-t', name], { encoding: 'utf-8' }).status === 0,
-  },
   clock: { now: () => Date.now() },
   sleep,
   pid: process.pid,
@@ -361,10 +313,8 @@ const worker = createRequestWorker({
   alert: (key, state, message) => { void throttledAlert(key, state, message); },
   stallThresholdMs: parseStallThresholdMs(process.env.REQUEST_STALL_ALERT_MINUTES),
   containmentReady,
-  createPlainSession,
   runContainedPrint,
-  pane: tmuxDeps,
-  attachLog: attachSessionLog,
+  runTrustedPrint: runTrustedPrintAdapter,
 });
 
 /**
@@ -550,9 +500,9 @@ function scheduleDaily(hour: number, minute: number, skillCommand: string, label
   }, delayMs);
 }
 
-// v2.31.96: 對外部 bash/bun script 的 fire-and-forget helper（不走 claude/tmux）
+// v2.31.96: 對外部 bash/bun script 的 fire-and-forget helper（不走 claude）
 // 接 v2.31.3 launchd 廢棄後 orphan 的 daily scripts（refresh:google / auth-cleanup）。
-// 不共用 isRunning 鎖 — 跑 script 不爭 tmux session，獨立走自己日誌。
+// 不共用 isRunning 鎖 — 跑 script 不爭 claude 鎖，獨立走自己日誌。
 async function fireScheduleScript(cmd: string, args: string[], label: string): Promise<void> {
   log(`Firing script: ${label} (${cmd} ${args.join(' ')})`);
   try {

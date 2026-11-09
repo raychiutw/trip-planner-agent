@@ -1,8 +1,7 @@
 /**
  * ADR-0007 第一層收屍 — scripts/lib/fail-pending-requests.ts
  *
- * api-server 確定「不會再有人處理」時（reaper 收尾、tmux 起不來、REPL 未就緒、
- * skill 未提交）就地把該 trip 還在跑的 request 標終結，不用等 100 分鐘牆鐘。
+ * api-server 確定「不會再有人處理」時（claude -p 失敗、逾時、輪數用盡）就地把該 trip 還在跑的 request 標終結，不用等 100 分鐘牆鐘。
  *
  * 最重要的守衛是**只殺列表回報還在跑的那些** —— PATCH status='failed' 從任何狀態
  * 都合法（failed 例外），無條件打會把剛完成的 request 一起清掉。

@@ -5,7 +5,7 @@ Tripline 的 **agent** 專案：跑在擁有者本機（Mac mini）的服務，�
 
 ## 內容
 
-- `scripts/tripline-api-server.ts` — 本機 api-server（tmux 驅動 contained `claude -p`、內建多 schedule cron、`/health`）。
+- `scripts/tripline-api-server.ts` — 本機 api-server（以 `claude -p` 執行 /tp-request（contained）與 /tp-daily-check、內建多 schedule cron、`/health`）。
 - `scripts/lib/`、`scripts/_lib/` — 請求 worker、contained spawn、寄信、Telegram、D1 client 等共用模組。
 - `scripts/tp-request-mcp-server.js`、`scripts/tp-request-contained/` — tp-request 的 MCP server 與隔離設定。
 - `scripts/daily-check.js`、`scripts/daily-report.js` — 每日健檢與報告。

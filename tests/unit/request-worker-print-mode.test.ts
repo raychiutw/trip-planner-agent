@@ -11,7 +11,6 @@ function fakeHost(opts: { pending: number; arrivals?: Record<number, number>; re
   let nextArrival = 100;
   let runs = 0;
   const effects: string[] = [];
-  const tmuxSessions: string[] = [];
   const unguardedFetches: string[] = []; // 鎖內、沒帶 timeout signal 的 fetch
   const deps: WorkerDeps = {
     apiBase: 'https://api.test', apiSecret: 'bootstrap', pid: 7,
@@ -36,10 +35,6 @@ function fakeHost(opts: { pending: number; arrivals?: Record<number, number>; re
       }
       return Response.json({}, { status: 404 });
     },
-    tmux: { list: () => null, has: () => false, kill: () => {} },
-    createPlainSession: async (name) => { tmuxSessions.push(name); return true; },
-    attachLog: () => {},
-    pane: { capture: () => '', sendKeys: () => {} },
     runContainedPrint: async () => {
       runs++;
       const result = opts.results?.[runs - 1] ?? { ok: true, timedOut: false };
@@ -49,16 +44,15 @@ function fakeHost(opts: { pending: number; arrivals?: Record<number, number>; re
       return result;
     },
   };
-  return { deps, effects, tmuxSessions, unguardedFetches, runs: () => runs, queue: () => queue };
+  return { deps, effects, unguardedFetches, runs: () => runs, queue: () => queue };
 }
 
-describe('contained /tp-request 走 claude -p（不經 tmux）', () => {
-  it('處理完就結束：只跑一次、不建任何 tmux session', async () => {
+describe('contained /tp-request 走 claude -p', () => {
+  it('處理完就結束：只跑一次', async () => {
     const host = fakeHost({ pending: 1 });
     const worker = createRequestWorker(host.deps);
     expect(await worker.tick('job')).toBe('spawned');
     expect(host.runs()).toBe(1);
-    expect(host.tmuxSessions).toEqual([]);
     expect(host.effects).toEqual([]);
     expect(worker.status().runningSkills).toEqual([]);
   });

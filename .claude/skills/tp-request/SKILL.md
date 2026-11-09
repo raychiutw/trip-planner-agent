@@ -82,7 +82,7 @@ API 設定、呼叫格式、Windows encoding 注意事項見 tp-shared/reference
 
 ## 觸發模式
 
-兩條路徑：Cloudflare Pages 送出請求時 POST `/trigger` 即時觸發（第一線）；`scripts/tripline-api-server.ts` 內建 cron 每 5 分鐘兜底。皆透過 ephemeral tmux session 在 `~/.tripline-agent/app` 執行。不需要、也不要在 Claude Desktop 另建 scheduled task，否則會重複觸發。
+兩條路徑：Cloudflare Pages 送出請求時 POST `/trigger` 即時觸發（第一線）；`scripts/tripline-api-server.ts` 內建 cron 每 5 分鐘兜底。皆以 `claude -p`（contained）執行。不需要、也不要在 Claude Desktop 另建 scheduled task，否則會重複觸發。
 
 ## 環境準備
 
@@ -144,7 +144,7 @@ TRIPLINE_API_TOKEN=$(node scripts/lib/get-tripline-token.js)
    否則 token 過期後所有 API 寫入 401，工作白做。orphan 上限已放寬到 90 分鐘
    （api-server ORPHAN_MAX_AGE_MS），90 分鐘內做不完的 request 應分批：先完成
    部分並 PATCH reply 說明進度（status 保持 processing），下一輪 session 接續。
-2. 無待處理請求 → 回報「沒有待處理的請求」**並跳到文末 Self-destruct 步驟**（仍須砍 tmux session，否則 cron 下一輪 spawn 會被 active session 擋下，浪費 30 分鐘）
+2. 無待處理請求 → 回報「沒有待處理的請求」並結束（`claude -p` 行程結束即收尾，不需要額外清理）
 3. 依序處理每個請求：
 
 ### 3a. 更新 status → processing
@@ -342,25 +342,6 @@ reply 必須用 `node -e` + `JSON.stringify` 生成 JSON，禁止 printf/echo/ba
 ## Markdown 支援欄位
 
 Markdown 支援欄位見 tp-shared/references.md
-
-## Self-destruct（tmux 觸發 only — v2.30.7+）
-
-skill **任何 termination path 之最後一步必跑**（含 step 2 「無待處理請求」、step 3 處理完畢、step 3 中途 fatal error abort）：
-
-```bash
-# API server (scripts/tripline-api-server.ts) 透過 ephemeral tmux session 觸發本 skill 時
-# 會 inject TRIPLINE_TMUX_SESSION + TMUX_BIN env var。drain queue 完成後砍 session 避免 orphan。
-# 使用者手動在 Claude Desktop / Code 跑時無此 env var → skip（該 session 由使用者自管）。
-#
-# v2.31.2: 改用 ${TMUX_BIN:-tmux} 絕對路徑避免 launchd PATH 不含 homebrew 時
-# ENOENT silent fail（v2.30.18 / v2.31.0 stuck-session incident root cause）。
-if [ -n "$TRIPLINE_TMUX_SESSION" ]; then
-  "${TMUX_BIN:-tmux}" kill-session -t "$TRIPLINE_TMUX_SESSION" || \
-    echo "[tp-request] WARNING: kill-session failed for $TRIPLINE_TMUX_SESSION" >&2
-fi
-```
-
-> ⚠️ 此 self-destruct 必須在所有 request 處理完成、reply 寫入完成、Telegram 通知（若有）之後執行。中途 kill 會打斷 in-flight curl。
 
 ## 注意事項
 
