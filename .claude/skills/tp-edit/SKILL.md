@@ -33,7 +33,7 @@ API 設定、呼叫格式、Windows encoding 注意事項見 tp-shared/reference
 5. 依修改類型選擇 API（POST entry / PATCH entry / PUT 整天 / POST alternates / PATCH master / PUT doc）— **端點見 tp-shared/references.md「行程修改共用步驟」§3**
    > ⚠️ **目標 entry 不存在時**（如該天沒有早餐 entry 但需要加入早餐）：先用 `POST /api/trips/{tripId}/days/{dayNum}/entries` 建立 entry（必填 `title`），取得 `eid` 後再掛 POI。
 6. **location 座標更新（鐵律）**：新增或替換景點時，必須用 `PATCH /entries/:eid` 補寫 `location` JSON（含 lat/lng）。用 Google Maps 查詢取得座標。格式：`[{"name":"地點名","lat":24.xx,"lng":121.xx,"googleQuery":"...","appleQuery":"...","geocode_status":"ok"}]`。缺座標 = 地圖無法顯示 + travel 無法計算。
-7. **Doc 連動 + travel 重算（鐵律）** — 規則見 tp-shared/references.md §4。v2.24.0 起改呼叫 backend：
+7. **travel 重算（鐵律）** — 規則見 tp-shared/references.md §4。v2.24.0 起改呼叫 backend：
    - 插入/移除/替換 entry **或** 改 location 座標 **或** meal entry sort_order=0 餐廳變動 → `POST /api/trips/{tripId}/recompute-travel?day={N}`（受影響的天）
    - 跨天移動 → 兩天都 recompute（或直接 `?day=all`）
    - **不再手動算 Haversine**，不寫 `travel_type/desc/min` flat fields — backend 跑 1km gate + Google Routes 自動寫 trip_segments

@@ -27,7 +27,7 @@ curl -s -X {METHOD} \
 | 檔案 | 內容 | 引用時機 |
 |------|------|----------|
 | `references/poi-spec.md` | POI 欄位規格、型別必填欄位、googleRating 查詢策略 | 新增/修改 POI 時 |
-| `references/doc-spec.md` | Doc 結構規格、Markdown 支援欄位、Doc 連動規則 | 更新 doc 時 |
+| `references/doc-spec.md` | Markdown 支援欄位 | 寫 description／note 時 |
 | `references/modify-steps.md` | 行程修改共用步驟、travel 語意、歇業偵測規則 | tp-edit/tp-request/tp-rebuild 修改行程時 |
 | `references/quality_checklist.md` | 品質規則 checklist | 驗證時 |
 

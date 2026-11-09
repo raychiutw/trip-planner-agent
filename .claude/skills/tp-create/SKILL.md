@@ -108,11 +108,7 @@ user-invocable: true
    - `label`（≤ 8 字，必填）：當日主題，例如 `"抵達那霸"` / `"美麗海水族館"`
 
    使用 `PUT /api/trips/{tripId}/days/{N}`（API 格式見 tp-shared/references.md）
-8. 建立 docs（flights、checklist、backup、suggestions、emergency）：
-
-   使用 `PUT /api/trips/{tripId}/docs/{type}`，Body: `{title: "...", entries: [{section, title, content}, ...]}`
-
-   > ⚠️ **新建行程一律用新格式**（`entries` 陣列），不用舊格式（`content: JSON字串`）。完整規格見 tp-shared/references.md「Doc 結構規格」。
+8. （已退役）docs（flights、checklist、backup、suggestions、emergency）不再建立：trip_docs 已於 2026-07-28 退役，行程筆記由 App 筆記頁產生。
 
 8b. **Travel 重算（鐵律，v2.24.0+）**：所有天 PUT 完成 + 所有 entry location 補完後，呼叫 `POST /api/trips/{tripId}/recompute-travel?day=all` 一次。Backend 跑 1km gate Haversine + Google Routes API + 寫 `trip_segments`；`mode='transit'` 既有 segment 不覆寫；同時 trip-wide prune 不再相鄰的幽靈段。不要在 PUT body 手填 `travel` 巢狀欄位，segments table 是 SoT。
 
