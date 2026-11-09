@@ -48,8 +48,8 @@ ln -sfn ../.env.local "$RUNTIME/app/.env.local"
 ln -sfn ../../logs "$RUNTIME/app/scripts/logs"
 echo "$SHA" > "$RUNTIME/app/.deployed-ref"
 
-# Claude Code 對沒開過的資料夾會先跳「信任這個資料夾？」，吃掉 api-server 送進 tmux session 的 skill 指令
-#（2026-11-08 06:10 daily-check 因此失敗：「REPL 未接到輸入」）。執行目錄是新路徑時沒有信任紀錄 → 部署時補上。
+# Claude Code 對沒開過的資料夾會先跳「信任這個資料夾？」，吃掉送進互動 session 的 skill 指令
+#（2026-11-08 06:10 daily-check 因此失敗）。daily-check 已改 claude -p，這段信任紀錄留著當保險（不確定 -p 對新路徑完全不查信任）。執行目錄是新路徑時沒有信任紀錄 → 部署時補上。
 # 已信任就不改寫（執行中的 Claude 也會寫這個檔）；設定檔不存在或壞掉只警告，不中止部署。
 # shortcut: 讀改寫沒有跨行程鎖，與同時寫檔的 Claude 理論上會互蓋；窗口極短，真的撞到再重跑部署即可。
 CLAUDE_CONFIG="${CLAUDE_CONFIG_FILE:-$HOME/.claude.json}"

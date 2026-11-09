@@ -1,17 +1,17 @@
 /**
  * ADR-0007 第一層收屍 —— api-server 確定「不會再有人處理」時就地標終結。
  *
- * 為什麼要有這層：reaper 到 90 分鐘 orphan cap 只 `tmux kill-session`，不動
+ * 為什麼要有這層：claude -p 失敗／逾時被砍掉時，不動
  * trip_requests row，於是 request 永遠停在 processing。後果不只是轉圈圈 ——
  * ChatPage 的 composer 綁 inflight（整個聊天鎖死），而 peekPendingRequest 依
  * processing → open oldest-first 撈，一筆殭屍會 head-of-line block 所有行程的隊列。
  *
  * 為什麼**只殺列表回報還在跑的那些**：PATCH `status='failed'` 從任何狀態都合法
  * （requests/[id] 的 failed 例外），無條件打會把剛完成的 request 一起清掉。
- * 呼叫端一律先 `tmux kill-session` 再呼叫本函式 —— session 已死，列表與 PATCH
+ * 呼叫端一律在 claude -p 行程已結束後才呼叫本函式 —— 行程已死，列表與 PATCH
  * 之間沒有東西能完成那筆請求，所以沒有 TOCTOU 視窗。
  *
- * 抽成獨立模組的理由同 tmux-pane.ts：tripline-api-server.ts import 即啟動 server
+ * 抽成獨立模組的理由同 print-run.ts：tripline-api-server.ts import 即啟動 server
  * （top-level setInterval / scheduleDaily），無法在 vitest 直接 import 執行。
  */
 

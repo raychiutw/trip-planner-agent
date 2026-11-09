@@ -2,14 +2,12 @@ import { describe, expect, it } from 'vitest';
 import { createRequestWorker, type WorkerDeps } from '../../scripts/lib/request-worker';
 
 /**
- * plain tmux session（/tp-daily-check 等信任 skill）的生命週期，加上 contained 路徑共用的前置關卡
+ * 信任 skill（/tp-daily-check）`claude -p` 的生命週期，加上 contained 路徑共用的前置關卡
  * （containment、mint token）。contained `claude -p` 本身的行為見 request-worker-print-mode.test.ts。
  */
 function fakeHost() {
   let now = 1_700_000_000_000;
   let pending = true;
-  const sessions = new Set<string>();
-  let prompt = '❯ ';
   const effects: string[] = [];
   const deps: WorkerDeps = {
     apiBase: 'https://api.test', apiSecret: 'bootstrap', pid: 7,
@@ -23,54 +21,21 @@ function fakeHost() {
       if (init?.method === 'PATCH') { effects.push(`reap:${JSON.parse(String(init.body)).terminalReason}`); pending = false; return Response.json({}); }
       return Response.json({}, { status: 404 });
     },
-    tmux: {
-      list: (format) => [...sessions].map((name) => format.includes('created') ? `${name}|${Math.floor(now / 1000)}` : name).join('\n'),
-      has: (name) => sessions.has(name),
-      kill: (name) => { effects.push(`kill:${name}`); sessions.delete(name); },
-    },
     runContainedPrint: async () => { effects.push('run-print'); pending = false; return { ok: true, timedOut: false }; },
-    createPlainSession: async (name) => { effects.push('create-plain'); sessions.add(name); return true; },
-    attachLog: () => { effects.push('log-attached'); },
-    pane: {
-      capture: () => prompt,
-      sendKeys: (_name, keys) => {
-        effects.push(`keys:${keys}`);
-        prompt = keys === 'Enter' ? '❯ ' : `❯ ${keys}`;
-      },
-    },
+    runTrustedPrint: async () => { effects.push('run-trusted'); return { ok: true, timedOut: false }; },
   };
-  return { deps, effects, hasSession: () => sessions.size > 0, hasPending: () => pending, setPending: (value: boolean) => { pending = value; } };
+  return { deps, effects, hasPending: () => pending, setPending: (value: boolean) => { pending = value; } };
 }
 
 describe('request worker lifecycle through the production interface', () => {
-  it('plain skill startup failure releases its own lock without reaping trip requests', async () => {
-    const host = fakeHost(); host.deps.pane.capture = () => '';
+  it('trusted skill failure releases its own lock without reaping trip requests', async () => {
+    const host = fakeHost();
+    host.deps.runTrustedPrint = async () => ({ ok: false, timedOut: true });
     const worker = createRequestWorker(host.deps);
     expect(await worker.tick('job', '/tp-daily-check')).toBe('failed');
-    expect(host.hasSession()).toBe(false);
     expect(host.hasPending()).toBe(true);
     expect(host.effects.some((effect) => effect.startsWith('reap:'))).toBe(false);
     expect(worker.status().runningSkills).toEqual([]);
-  });
-
-  it('plain skill drives the real REPL protocol (send skill, Enter) and leaves cleanup to the skill itself', async () => {
-    const host = fakeHost(); const worker = createRequestWorker(host.deps);
-    expect(await worker.tick('job', '/tp-daily-check')).toBe('spawned');
-    expect(host.effects).toContain('keys:/tp-daily-check');
-    expect(host.effects).toContain('keys:Enter');
-    expect(host.effects).toContain('log-attached');
-    expect(worker.status().runningSkills).toEqual([]);
-  });
-
-  it('does not reap anything when a plain session cannot actually be killed after a failed startup', async () => {
-    const host = fakeHost(); host.deps.pane.capture = () => '';
-    host.deps.tmux.kill = () => { host.effects.push('kill-failed'); };
-    const worker = createRequestWorker(host.deps);
-    expect(await worker.tick('job', '/tp-daily-check')).toBe('failed');
-    expect(host.hasSession()).toBe(true);
-    expect(host.effects.some((effect) => effect.startsWith('reap:'))).toBe(false);
-    expect(worker.status().running).toBe(false);
-    expect(await worker.tick('job', '/tp-daily-check')).toBe('busy');
   });
 
   it.each(['containment', 'token'] as const)('%s failure stays closed and retries without reaping pending work', async (stage) => {
@@ -99,7 +64,7 @@ describe('request worker lifecycle through the production interface', () => {
     expect(await worker.tick('job', '/tp-daily-check')).toBe('spawned');
     release(); expect(await first).toBe('spawned');
     expect(host.effects.filter((effect) => effect === 'run-print')).toHaveLength(1);
-    expect(host.effects.filter((effect) => effect === 'create-plain')).toHaveLength(1);
+    expect(host.effects.filter((effect) => effect === 'run-trusted')).toHaveLength(1);
     expect(worker.status().runningSkills).toEqual([]);
   });
 });

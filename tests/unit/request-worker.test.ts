@@ -1,9 +1,9 @@
 /**
- * #1264 request worker —— 用 fake api / tmux / clock 從 interface 驗 tick 路徑，
+ * #1264 request worker —— 用 fake api / clock 從 interface 驗 tick 路徑，
  * 取代 api-server-*.test 內 readFileSync + regex 的守衛。
  */
 import { describe, it, expect, vi } from 'vitest';
-import { createRequestWorker, sessionPrefixForSkill, getKnownSessionPrefixes, ORPHAN_MAX_AGE_MS, type WorkerDeps } from '../../scripts/lib/request-worker';
+import { createRequestWorker, sessionPrefixForSkill, ORPHAN_MAX_AGE_MS, type WorkerDeps } from '../../scripts/lib/request-worker';
 // 與 web／api 判定請求逾時的門檻（trip-planner 的 functions/api/_requestTermination.ts 的 REQUEST_STALE_MINUTES）相同。
 // 跨專案不變量：worker 的總執行時間必須小於它。這裡的鏡射只做本地檢查；真正的跨 repo 守衛在 api repo：
 // ORPHAN_MAX_AGE_MS 會經 contract/api-contract.json（limits）快照過去，由 api 的 tests/agent-contract 對真正的
@@ -14,8 +14,7 @@ function jsonRes(status: number, body: unknown): Response {
   return new Response(JSON.stringify(body), { status });
 }
 
-function makeDeps(over: Partial<WorkerDeps> & { sessions?: string[]; pending?: { id: number; tripId: string } | null; userToken?: boolean } = {}) {
-  const sessions = over.sessions ?? [];
+function makeDeps(over: Partial<WorkerDeps> & { pending?: { id: number; tripId: string } | null; userToken?: boolean } = {}) {
   const nowMs = 1_700_000_000_000;
   const fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
     if (url.includes('/api/requests?status=')) {
@@ -28,22 +27,12 @@ function makeDeps(over: Partial<WorkerDeps> & { sessions?: string[]; pending?: {
     }
     return jsonRes(404, {});
   });
-  let prompt = '❯ ';
-  let killed = false;
   const deps: WorkerDeps = {
     fetch: fetchMock as unknown as typeof fetch,
     apiBase: 'https://api.test',
     apiSecret: 'secret',
     getServiceToken: vi.fn(async () => 'svc-token'),
     userTokenEnabled: (skill) => (over.userToken ?? true) && skill === '/tp-request',
-    tmux: {
-      list: vi.fn((format: string) => {
-        if (format.includes('session_created')) return sessions.map((s) => `${s}|${Math.floor(nowMs / 1000) - 10}`).join('\n');
-        return sessions.join('\n');
-      }),
-      kill: vi.fn(() => { killed = true; }),
-      has: vi.fn(() => !killed),
-    },
     clock: { now: () => nowMs },
     sleep: vi.fn(async () => undefined),
     pid: 4242,
@@ -51,10 +40,8 @@ function makeDeps(over: Partial<WorkerDeps> & { sessions?: string[]; pending?: {
     logError: vi.fn(),
     alert: vi.fn(),
     containmentReady: vi.fn(() => true),
-    pane: { capture: () => prompt, sendKeys: (_name, keys) => { prompt = keys === 'Enter' ? '❯ ' : `❯ ${keys}`; } },
-    attachLog: vi.fn(),
     runContainedPrint: vi.fn(async () => ({ ok: true, timedOut: false })),
-    createPlainSession: vi.fn(async () => true),
+    runTrustedPrint: vi.fn(async () => ({ ok: true, timedOut: false })),
     ...over,
   };
   return { deps, fetchMock };
@@ -66,9 +53,6 @@ describe('prefix 規則', () => {
     expect(sessionPrefixForSkill('/tp-daily-check')).toBe('tripline-tp-daily-check-');
     expect(() => sessionPrefixForSkill('/rm-rf')).toThrow(/Disallowed/);
   });
-  it('getKnownSessionPrefixes 含兩個 skill prefix + legacy tripline-request-', () => {
-    expect(getKnownSessionPrefixes()).toEqual(['tripline-tp-request-', 'tripline-tp-daily-check-', 'tripline-request-']);
-  });
 });
 
 describe('tick', () => {
@@ -77,7 +61,7 @@ describe('tick', () => {
     const w = createRequestWorker(deps);
     expect(await w.tick('api')).toBe('idle');
     expect(deps.runContainedPrint).not.toHaveBeenCalled();
-    expect(deps.createPlainSession).not.toHaveBeenCalled();
+    expect(deps.runTrustedPrint).not.toHaveBeenCalled();
   });
 
   it('有 pending → peek(processing→open) → mint-restricted(request_id, API_SECRET) → claude -p，run 名 = prefix + now + pid + -r<輪>', async () => {
@@ -91,13 +75,6 @@ describe('tick', () => {
     expect(w.status()).toMatchObject({ processedCount: 1, running: false });
   });
 
-  it('同 skill 已有 session（含 legacy prefix）→ busy 不重複 spawn', async () => {
-    const { deps } = makeDeps({ pending: { id: 1, tripId: 't' }, sessions: ['tripline-request-123-1'] });
-    const w = createRequestWorker(deps);
-    expect(await w.tick('job')).toBe('busy');
-    expect(deps.runContainedPrint).not.toHaveBeenCalled();
-  });
-
   it('同 skill 併發 tick → 第二個 busy（per-skill 鎖）；不同 skill 不互鎖', async () => {
     let release!: () => void;
     const gate = new Promise<void>((r) => { release = () => r(); });
@@ -106,7 +83,7 @@ describe('tick', () => {
     const first = w.tick('api', '/tp-request');
     expect(w.isRunning('/tp-request')).toBe(true);
     expect(await w.tick('api', '/tp-request')).toBe('busy');
-    expect(await w.tick('job', '/tp-daily-check')).toBe('spawned'); // service token → plain spawn
+    expect(await w.tick('job', '/tp-daily-check')).toBe('spawned'); // service token → claude -p
     release();
     expect(await first).toBe('spawned');
   });
@@ -118,7 +95,7 @@ describe('tick', () => {
     const w = createRequestWorker(deps);
     expect(await w.tick('api')).toBe('idle');
     expect(deps.alert).toHaveBeenCalledWith('mint-MINT_FAILED', 'failed', expect.stringContaining('mint-restricted'));
-    expect(deps.createPlainSession).not.toHaveBeenCalled();
+    expect(deps.runTrustedPrint).not.toHaveBeenCalled();
     expect(deps.runContainedPrint).not.toHaveBeenCalled();
   });
 
@@ -127,40 +104,16 @@ describe('tick', () => {
     const w = createRequestWorker(deps);
     expect(await w.tick('api')).toBe('failed');
     expect(deps.alert).toHaveBeenCalledWith('containment-not-ready', 'failed', expect.any(String));
-    expect(deps.createPlainSession).not.toHaveBeenCalled();
+    expect(deps.runTrustedPrint).not.toHaveBeenCalled();
   });
 
-  it('flag OFF 時 /tp-request 落到未-contained 路徑 → 拒絕；/tp-daily-check 走 service token plain spawn', async () => {
+  it('flag OFF 時 /tp-request 落到未-contained 路徑 → 拒絕；/tp-daily-check 走 service token claude -p', async () => {
     const { deps } = makeDeps({ userToken: false });
     const w = createRequestWorker(deps);
     expect(await w.tick('api', '/tp-request')).toBe('failed');
     expect(deps.alert).toHaveBeenCalledWith('tp-request-uncontained-refused', 'failed', expect.any(String));
     expect(await w.tick('job', '/tp-daily-check')).toBe('spawned');
-    expect(deps.createPlainSession).toHaveBeenCalledWith('tripline-tp-daily-check-1700000000000-4242', '/tp-daily-check', 'svc-token');
-  });
-});
-
-describe('cleanupOrphans', () => {
-  it('只清自家 prefix 且超過 maxAge 的 session；`|` 分隔', () => {
-    const now = 1_700_000_000_000;
-    const old = Math.floor(now / 1000) - 2 * 60 * 60;
-    const fresh = Math.floor(now / 1000) - 60;
-    const { deps } = makeDeps({
-      tmux: {
-        list: () => [`tripline-tp-request-1-1|${old}`, `tripline-request-legacy|${old}`, `tripline-tp-request-2-2|${fresh}`, `someone-else|${old}`, `bad line`].join('\n'),
-        kill: vi.fn(),
-      },
-    });
-    const w = createRequestWorker(deps);
-    expect(w.cleanupOrphans(ORPHAN_MAX_AGE_MS)).toBe(2);
-    expect(deps.tmux.kill).toHaveBeenCalledWith('tripline-tp-request-1-1');
-    expect(deps.tmux.kill).toHaveBeenCalledWith('tripline-request-legacy');
-    expect(deps.tmux.kill).not.toHaveBeenCalledWith('someone-else');
-    expect(deps.tmux.kill).not.toHaveBeenCalledWith('tripline-tp-request-2-2');
-  });
-  it('tmux 不在 → 0', () => {
-    const { deps } = makeDeps({ tmux: { list: () => null, kill: vi.fn() } });
-    expect(createRequestWorker(deps).cleanupOrphans(1)).toBe(0);
+    expect(deps.runTrustedPrint).toHaveBeenCalledWith('tripline-tp-daily-check-1700000000000-4242-r1', '/tp-daily-check', 'svc-token');
   });
 });
 
@@ -170,11 +123,9 @@ describe('#1265 收屍（ADR-0007 第一層）', () => {
     let now = 1_700_000_000_000;
     let rounds = 0;
     const patched: string[] = [];
-    let alive = true;
     const { deps } = makeDeps({
       clock: { now: () => now },
       sleep: vi.fn(async (ms: number) => { now += ms; rounds++; }),
-      tmux: { list: () => '', kill: vi.fn(() => { alive = false; }), has: vi.fn(() => alive) },
     });
     (deps.fetch as unknown as ReturnType<typeof vi.fn>).mockImplementation(async (url: string, init?: RequestInit) => {
       if (url.includes('/api/requests?status=') && url.includes('tripId=')) {

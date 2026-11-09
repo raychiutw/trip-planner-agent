@@ -1,14 +1,13 @@
 /**
  * request worker（#1264）—— 行程 AI 聊天（requests pipeline）worker 的核心邏輯。
  *
- * api-server 以前把 peek → token → spawn → 收屍全寫成頂層函式，tmux / fetch / 時鐘在函式內部
+ * api-server 以前把 peek → token → spawn → 收屍全寫成頂層函式，fetch / 時鐘在函式內部
  * 直接取用，測試只能 readFileSync + regex。這裡把「決策」收進一個接受依賴的 module：
- * 真實 adapter（tmux 指令、fetch、Date.now、contained 檔案佈置）由 api-server 組裝注入，
- * 測試用 fake 進同一個 interface。對外行為（session 命名、prefix、legacy 相容、log 訊息）不變。
+ * 真實 adapter（fetch、Date.now、contained 檔案佈置、claude -p spawn）由 api-server 組裝注入，
+ * 測試用 fake 進同一個 interface。
  */
 
 import { failPendingRequests, type ReapReason } from './fail-pending-requests';
-import { waitForRepl, submitSkillCommand, type TmuxDeps } from './tmux-pane';
 
 /** createdAt：API（deepCamel）回的 D1 `datetime('now')`，格式 `YYYY-MM-DD HH:MM:SS`，UTC 無時區；缺漏時省略。 */
 export interface PendingRequest { requestId: string; tripId: string; createdAt?: string }
@@ -29,13 +28,6 @@ export interface WorkerDeps {
   getServiceToken: () => Promise<string>;
   /** TP_REQUEST_USER_TOKEN 開關（只有 /tp-request 走 owner-restricted token）。 */
   userTokenEnabled: (skillCommand: string) => boolean;
-  tmux: {
-    /** `tmux ls -F <format>` 的 stdout；tmux 不在／沒 server 回 null。 */
-    list: (format: string) => string | null;
-    kill: (sessionName: string) => void;
-    /** `tmux has-session -t <name>`。 */
-    has: (sessionName: string) => boolean;
-  };
   clock: { now: () => number };
   sleep: (ms: number) => Promise<void>;
   pid: number;
@@ -45,18 +37,17 @@ export interface WorkerDeps {
   /** 請求停滯告警門檻（毫秒）；省略用 DEFAULT_STALL_THRESHOLD_MS。 */
   stallThresholdMs?: number;
   containmentReady: () => boolean;
-  createPlainSession: (sessionName: string, skillCommand: string, token: string) => Promise<boolean>;
-  pane: Pick<TmuxDeps, 'capture' | 'sendKeys'>;
+  /** 信任 skill（/tp-daily-check）的 `claude -p`：service token、不隔離；實作要自己處理逾時（60 分鐘）與 log。 */
+  runTrustedPrint: (runName: string, skillCommand: string, token: string) => Promise<PrintRunResult>;
   /**
-   * contained /tp-request 的唯一執行路徑：`claude -p`，process 結束就是處理完（不經 tmux）。
+   * contained /tp-request 的唯一執行路徑：`claude -p`，process 結束就是處理完。
    * 實作要自己處理逾時（砍 process、回 timedOut）與 session 目錄清理。
    */
   runContainedPrint: (runName: string, skillCommand: string, token: string, restrictTrip: string) => Promise<PrintRunResult>;
-  attachLog: (sessionName: string, skillCommand: string) => void;
 }
 
 export const ALLOWED_SKILLS = new Set(['/tp-request', '/tp-daily-check']);
-export const LEGACY_SESSION_PREFIX = 'tripline-request-';
+/** worker 單次處理的總時間上限（分鐘數經 api-contract 與 api 的 100 分鐘牆鐘錯開；contained 單輪逾時另見 print-run）。 */
 export const ORPHAN_MAX_AGE_MS = 90 * 60 * 1000; // 90 minutes
 /** 列出某行程待處理請求時的單頁筆數；與 functions/api/requests.ts 的上限一致（超過會被截成 50）。 */
 const PENDING_LIST_PAGE_SIZE = 50;
@@ -95,10 +86,6 @@ export function sessionPrefixForSkill(skillCommand: string): string {
   const verified = assertAllowedSkill(skillCommand);
   const slug = verified.replace(/^\//, '').toLowerCase();
   return `tripline-${slug}-`;
-}
-
-export function getKnownSessionPrefixes(): string[] {
-  return [...Array.from(ALLOWED_SKILLS).map(sessionPrefixForSkill), LEGACY_SESSION_PREFIX];
 }
 
 export function createRequestWorker(deps: WorkerDeps) {
@@ -155,7 +142,7 @@ export function createRequestWorker(deps: WorkerDeps) {
       if (stalled && !stallAlerted && oldest) {
         stallAlerted = true;
         deps.alert(STALL_ALERT_KEY, 'failed',
-          `請求 #${oldest.req.requestId} 已等待 ${Math.floor(waited / 60_000)} 分鐘（行程 ${oldest.req.tripId}，tick=${tickResult}）→ worker 可能停擺，查 api-server log 與 tmux／claude -p。`);
+          `請求 #${oldest.req.requestId} 已等待 ${Math.floor(waited / 60_000)} 分鐘（行程 ${oldest.req.tripId}，tick=${tickResult}）→ worker 可能停擺，查 api-server log 與 claude -p。`);
       } else if (!stalled && stallAlerted) {
         stallAlerted = false;
         deps.alert(STALL_ALERT_KEY, 'healthy', '請求停滯已解除：最老的待處理請求回到門檻內或隊列已清空。');
@@ -205,53 +192,14 @@ export function createRequestWorker(deps: WorkerDeps) {
     try {
       return { token: await deps.getServiceToken() };
     } catch (err) {
-      deps.logError(`Token mint 失敗，tmux 不啟動：${(err as Error).message}`);
+      deps.logError(`Token mint 失敗，不啟動：${(err as Error).message}`);
       return null;
     }
   }
 
-  /** 清掉超過 maxAge 的自家 prefix session（含 legacy prefix）；回清掉幾個。 */
-  function cleanupOrphans(maxAgeMs: number): number {
-    try {
-      const stdout = deps.tmux.list('#{session_name}|#{session_created}');
-      if (stdout == null) return 0;
-      const knownPrefixes = getKnownSessionPrefixes();
-      const now = Math.floor(deps.clock.now() / 1000);
-      let killed = 0;
-      for (const line of stdout.split('\n')) {
-        const parts = line.split('|');
-        if (parts.length !== 2) continue;
-        const [name, createdStr] = parts as [string, string];
-        if (!knownPrefixes.some((p) => name.startsWith(p))) continue;
-        const created = parseInt(createdStr, 10);
-        if (!created) continue;
-        if ((now - created) * 1000 > maxAgeMs) {
-          deps.tmux.kill(name);
-          deps.log(`Cleaned orphan tmux session: ${name} (age=${now - created}s)`);
-          killed++;
-        }
-      }
-      return killed;
-    } catch (err) {
-      deps.logError(`cleanupOrphans error: ${(err as Error).message}`);
-      return 0;
-    }
-  }
-
-  function hasActiveSession(skillCommand: string): string | null {
-    const stdout = deps.tmux.list('#{session_name}');
-    if (stdout == null) return null;
-    const filter = sessionPrefixForSkill(skillCommand);
-    for (const line of stdout.split('\n')) {
-      if (line.startsWith(filter)) return line;
-      if (skillCommand === '/tp-request' && line.startsWith(LEGACY_SESSION_PREFIX)) return line;
-    }
-    return null;
-  }
-
   /**
-   * 一次 process loop：清 orphan → 同 skill 有 session 就 busy → 取 token / spawn。
-   * 同 skill 併發呼叫時第二個直接 busy（per-skill 鎖，取代舊 global isRunning）。
+   * 一次 process loop：同 skill 已在跑就 busy → 取 token / spawn。
+   * 同 skill 併發呼叫時第二個直接 busy（per-skill 鎖：/tp-daily-check 與 /tp-request 互不佔用）。
    */
   async function tick(source: 'api' | 'job', skillCommand: string = '/tp-request'): Promise<TickResult> {
     assertAllowedSkill(skillCommand);
@@ -268,13 +216,6 @@ export function createRequestWorker(deps: WorkerDeps) {
     runningSkills.add(skillCommand);
     deps.log(`Process loop started (source: ${source}, skill: ${skillCommand})`);
     try {
-      const cleaned = cleanupOrphans(ORPHAN_MAX_AGE_MS);
-      if (cleaned > 0) deps.log(`Cleaned ${cleaned} orphan session(s)`);
-      const active = hasActiveSession(skillCommand);
-      if (active) {
-        deps.log(`Active ${skillCommand} session ${active} still running, skip new spawn`);
-        return 'busy';
-      }
       const acquired = await acquireToken(skillCommand);
       if (acquired === null) return 'idle';
       const ok = await spawnWith(skillCommand, acquired);
@@ -297,7 +238,7 @@ export function createRequestWorker(deps: WorkerDeps) {
     const sessionName = `${sessionPrefixForSkill(skillCommand)}${deps.clock.now()}-${deps.pid}`;
     if (acquired.restrictTrip) {
       if (deps.containmentReady()) {
-        return runSession(sessionName, skillCommand, acquired);
+        return runSession(sessionName, skillCommand, { ...acquired, restrictTrip: acquired.restrictTrip });
       }
       deps.logError('containment infra 未就緒（tp-agent/sudo/settings/self-probe）→ /tp-request 不 spawn（拒絕未隔離 session 處理不可信輸入）');
       deps.alert('containment-not-ready', 'failed',
@@ -310,31 +251,32 @@ export function createRequestWorker(deps: WorkerDeps) {
         '/tp-request 落到未-contained 路徑 → 不 spawn。要跑請開 TP_REQUEST_USER_TOKEN=1 走 Option E contained 路徑。');
       return false;
     }
-    return runSession(sessionName, skillCommand, acquired);
+    return runTrustedSession(sessionName, skillCommand, acquired.token);
   }
 
-  /** /tp-daily-check 等信任 skill 的 plain tmux session（fire-and-forget，skill 結束時自行關閉）。 */
-  async function runPlainSession(sessionName: string, skillCommand: string, token: string): Promise<boolean> {
-    let created = false;
-    const pane = { ...deps.pane, sleep: deps.sleep, log: deps.log };
+  /** /tp-daily-check 等信任 skill 的 `claude -p`：結束即處理完；失敗（逾時／輪數用盡／非 0／沒啟動）發告警，成功發恢復。 */
+  async function runTrustedSession(sessionName: string, skillCommand: string, token: string): Promise<boolean> {
+    const key = `${skillCommand.replace(/^\//, '').replace(/^tp-/, '')}-failed`;
+    const label = skillCommand.replace(/^\/tp-/, '');
+    let r: PrintRunResult;
     try {
-      created = await deps.createPlainSession(sessionName, skillCommand, token);
-      if (!created) throw new Error('session 建立失敗');
-      if (!(await waitForRepl(pane, sessionName))) throw new Error('REPL 未就緒');
-      if (!(await submitSkillCommand(pane, sessionName, skillCommand))) throw new Error('skill 未提交');
-      deps.attachLog(sessionName, skillCommand);
-      deps.log(`Spawned tmux session: ${sessionName} (skill=${skillCommand}, fire-and-forget; skill self-destructs at end)`);
-      return true;
+      r = await deps.runTrustedPrint(`${sessionName}-r1`, skillCommand, token);
     } catch (error) {
-      deps.logError(`session ${sessionName} 失敗：${error instanceof Error ? error.message : String(error)}`);
-      if (created || deps.tmux.has(sessionName)) closeSession(sessionName);
-      return false;
+      deps.logError(`${skillCommand} claude -p 失敗：${error instanceof Error ? error.message : String(error)}`);
+      r = { ok: false, timedOut: false };
     }
+    if (r.ok) {
+      deps.alert(key, 'healthy', `${label} 恢復正常。`);
+      return true;
+    }
+    const why = r.started === false ? '沒能啟動' : r.timedOut ? '逾時' : '非 0 結束（含輪數用盡）';
+    deps.logError(`${skillCommand} claude -p ${why}`);
+    deps.alert(key, 'failed', `${label} 失敗：${why}。查 scripts/logs/${skillCommand.replace(/^\//, '')}/ 的 log。`);
+    return false;
   }
 
-  async function runSession(sessionName: string, skillCommand: string, acquired: AcquiredToken): Promise<boolean> {
-    if (acquired.restrictTrip) return runPrintSession(sessionName, skillCommand, acquired.token, acquired.restrictTrip, Number(acquired.requestId));
-    return runPlainSession(sessionName, skillCommand, acquired.token);
+  function runSession(sessionName: string, skillCommand: string, acquired: AcquiredToken & { restrictTrip: string }): Promise<boolean> {
+    return runPrintSession(sessionName, skillCommand, acquired.token, acquired.restrictTrip, Number(acquired.requestId));
   }
 
   /**
@@ -392,11 +334,6 @@ export function createRequestWorker(deps: WorkerDeps) {
     return false;
   }
 
-  function closeSession(sessionName: string): void {
-    deps.tmux.kill(sessionName);
-    if (deps.tmux.has(sessionName)) throw new Error(`session ${sessionName} 未能終止，保留 request 等待後續處理`);
-  }
-
   /** 該 trip 還在隊列的 request id（open + processing）；任何一步查不到回 null（呼叫端須當「有待處理」保守處理）。 */
   async function listPendingIds(tripId: string): Promise<number[] | null> {
     try {
@@ -436,10 +373,8 @@ export function createRequestWorker(deps: WorkerDeps) {
 
   return {
     tick,
-    cleanupOrphans,
     tripHasPending,
     reap,
-    hasActiveSession,
     acquireToken,
     peekPendingRequest,
     /** /health 用：目前跑中的 skill 與統計。 */

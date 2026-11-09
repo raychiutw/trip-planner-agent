@@ -117,8 +117,8 @@ describe('deploy.sh', () => {
 });
 
 describe('deploy.sh — Claude Code 對執行目錄的信任', () => {
-  // Claude Code 對沒開過的資料夾會先跳「信任這個資料夾？」，吃掉 api-server 送進 tmux session 的 skill 指令
-  //（2026-11-08 06:10 daily-check 因此失敗：「REPL 未接到輸入」）。執行目錄是新路徑時沒有信任紀錄，部署要補上。
+  // Claude Code 對沒開過的資料夾會先跳「信任這個資料夾？」，吃掉送進互動 session 的 skill 指令
+  //（2026-11-08 06:10 daily-check 因此失敗）。執行目錄是新路徑時沒有信任紀錄，部署要補上。
   const trusted = () => JSON.parse(readFileSync(claudeJson, 'utf8')).projects?.[join(runtime, 'app')];
 
   it('設定檔存在 → 補上 app 目錄的信任，其他設定原封不動', () => {

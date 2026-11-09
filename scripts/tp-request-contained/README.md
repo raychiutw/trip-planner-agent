@@ -82,7 +82,7 @@ grep -q '^CLAUDE_CODE_OAUTH_TOKEN=' /Users/ray/.tripline-agent/.env.local && ech
 
 ## `claude -p` 模式（contained `/tp-request` 的唯一路徑，2026-10-27 起）
 
-v2.30.7 曾因冷啟動可靠度放棄 `-p`，改用 tmux 互動式 REPL；但 REPL 做完就閒置，**同一行程之後又進來的新請求沒有人再叫它處理**，要等到 90 分鐘 orphan cap 才被收屍（#287）。2026-10-27 在現行 CLI（2.1.311）以 tp-agent + `env -i` + `dontAsk` + `--strict-mcp-config` 實測 22 次全 exit 0、約 6 秒，skill 與 MCP 都正常載入，所以直接改回 `-p`，不設旗標。
+v2.30.7 曾因冷啟動可靠度放棄 `-p`，改用互動式 REPL；但 REPL 做完就閒置，**同一行程之後又進來的新請求沒有人再叫它處理**，要等到 90 分鐘 orphan cap 才被收屍（#287）。2026-10-27 在現行 CLI（2.1.311）以 tp-agent + `env -i` + `dontAsk` + `--strict-mcp-config` 實測 22 次全 exit 0、約 6 秒，skill 與 MCP 都正常載入，所以直接改回 `-p`，不設旗標。
 
 - 隔離參數與先前完全相同（`buildContainedShellCommand`：`sudo -u tp-agent`、`env -i`、`dontAsk`、`--settings`、`--strict-mcp-config`、0600 token 檔），多了 `-p <skill>` 與 `--max-turns 150`（耗盡時 exit 1，視為失敗）；stdin 接 `/dev/null`。
 - process 結束就是處理完；輪間若同一行程又進來新請求就再跑一輪（上限 `PRINT_MAX_ROUNDS`=3）。
@@ -92,6 +92,7 @@ v2.30.7 曾因冷啟動可靠度放棄 `-p`，改用 tmux 互動式 REPL；但 R
 - **api-server 啟動時清掃**上一代殘留（`print-run-sweep.ts`）：重啟不會帶走 tp-agent 的 claude，舊目錄與 token 檔也不會自己消失。這同時會清掉升級前舊 REPL 路徑留下的目錄。
 - 輸出收完整段後脫敏（restrict token、OAuth token 精確字串 + `Bearer`／`sk-ant-` 格式）寫進 `scripts/logs/tp-request/<run>.log`（0600，輸出上限 1MB）。
 - 回退：無旗標；要回舊行為就 revert 這個 PR。
+- **信任 skill（`/tp-daily-check`）**同樣走 `claude -p`，但不隔離：`--dangerously-skip-permissions`、`--max-turns 200`、單輪逾時 60 分鐘，service token 以環境變數傳給子行程（不在 argv）；失敗（逾時／輪數用盡／非 0 結束）發 `daily-check-failed` Telegram 告警。鎖是 per-skill，與 `/tp-request` 並行、互不佔用，自己同時只跑一個（見 `lib/trusted-print.ts`）。
 
 ## 已知限制（不擋 merge，維運時要知道）
 
@@ -106,5 +107,4 @@ v2.30.7 曾因冷啟動可靠度放棄 `-p`，改用 tmux 互動式 REPL；但 R
 ## 已知 follow-up
 
 - **per-session Google-API 額度** —— `recomputeTravel` / `enrichPoi` / `poiSearch` 會打有計費的 Google API，目前沒有 per-request 的呼叫額度；`--max-turns 150` 與單輪 30 分鐘逾時只是上限，被注入的 message 仍可能在這個範圍內燒額度。之後用 `bumpRateLimit` 加一個以 request 為 key 的額度。
-- **信任 skill 的 token 上 argv** —— `/tp-daily-check` 的 plain session 仍把 service token 插在 tmux 指令列（既有行為、`ps` 看得到）；這不是 `/tp-request` 的 fallback。後續可比照 contained 路徑改走 stdin。
 - **deny 用列舉（Claude Code 沒有「只准 allow、其餘全 deny」的權威模式）** —— `dontAsk` 會把未列的 meta-tool（Skill / ToolSearch / Workflow / Artifact …）當豁免放行，所以 `settings.json` 得**逐一列 deny**。風險：claude 未來新增一個沒列到的工具會漏。緩解：(1) **Layer A**（tp-agent OS 隔離）擋掉 FS/exec 類漏洞（讀憑證、跑 script）；(2) 真正需要 deny 擋的是**網路/外洩/spawn 類**（WebFetch / Artifact / SendUserFile / Workflow / Agent），這些已列。升 claude 版本後值得重跑 (0b) 的工具清單檢查、必要時補 deny。
