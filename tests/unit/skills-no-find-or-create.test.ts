@@ -34,5 +34,7 @@ describe('skills 不得指示呼叫 /api/pois/find-or-create', () => {
     // 3d-trib 是同一條舊收藏路徑的 401 排錯清單（wrangler pages secret、companionRequestId…），一併退役
     expect(s).not.toMatch(/3d-trib/);
     expect(s).not.toMatch(/\/api\/poi-favorites/);
+    // 白名單摘要也不得再列收藏端點（不帶 /api 前綴的寫法）
+    expect(s).not.toMatch(/poi-favorites/);
   });
 });
