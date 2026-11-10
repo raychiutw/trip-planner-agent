@@ -237,22 +237,6 @@ V2 cutover：拔掉 mode/intent matrix。LLM 直接依 message 語意判斷該�
    i. 失敗 → 回覆並完成（見下方「回覆寫入方法」）
    > ⚠️ **誠實回覆（鐵律）**：reply 必須如實反映實際執行結果。若 API 呼叫失敗、無法建立 entry、或 POI 掛在錯誤位置，必須在 reply 中明確告知旅伴，**禁止假裝成功**。未實際寫入資料就說「已完成」是最嚴重的違規。
 
-### 3d-trib. 401 debug checklist（companion path 排錯）
-
-寫入 `/api/poi-favorites*` 收到 401 時依序檢查：
-
-| # | 檢查項 | 確認方式 | 失敗動作 |
-|---|--------|----------|----------|
-| 1 | Header `Authorization: Bearer $TRIPLINE_API_TOKEN` 帶上 | `echo $TRIPLINE_API_TOKEN | head -c 10` | 設 env var：`grep TRIPLINE_API_TOKEN .env.local` |
-| 2 | Header `X-Request-Scope: companion` 帶上 | curl `-v` log inspect | 加上 header |
-| 3 | Body `companionRequestId` 為 number 非 string | `node -e "JSON.parse(body)"` | `Number(requestId)` 強轉 |
-| 4 | service token scope 含 `companion` | mint 時加 scope 參數 | re-mint with `--scopes admin,companion` |
-| 5 | service token clientId = `TP_REQUEST_CLIENT_ID` | `wrangler pages secret list` | 同步 Pages secret 與 cron env |
-| 6 | trip_requests row status = `processing`（非 `completed`/`failed`） | `wrangler d1 execute --command "SELECT status FROM trip_requests WHERE id=?"` | mid-flight admin PATCH 變 completed 不可重跑；只能新建 trip_requests row |
-| 7 | trip_requests.submitted_by 對應 users.email（LOWER match）| `wrangler d1 execute --command "SELECT u.id FROM users u WHERE LOWER(u.email)=LOWER(?)"` | submitter 不存在 users → 孤兒，要先建 user |
-
-audit_log 會記 `companion_failure_reason` 欄位，可用 `wrangler d1 execute --command "SELECT companion_failure_reason FROM audit_log WHERE trip_id='system:companion' ORDER BY id DESC LIMIT 5"` 反查具體 gate fail 原因（`self_reported_scope` / `client_unauthorized` / `invalid_request_id` / `submitter_unknown` / `status_completed` / `quota_exceeded`）。
-
 ### 3e. 諮詢回覆流程
 
 回覆後完成請求（見下方「回覆寫入方法」）
