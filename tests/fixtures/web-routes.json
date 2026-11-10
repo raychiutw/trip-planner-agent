@@ -1,0 +1,13 @@
+{
+ "_source": "trip-planner origin/master src/entries/main.tsx（2026-11-10 快照；更新時重新對照 router）",
+ "pages": [
+  "/", "/account", "/account/appearance", "/account/connected-apps", "/account/notifications",
+  "/account/password", "/account/sessions", "/add-to-trip", "/auth/password/reset",
+  "/auth/verify-email", "/chat", "/developer/apps", "/developer/apps/new", "/explore",
+  "/favorites", "/favorites/:id/add-to-trip", "/invite", "/login", "/login/forgot", "/map",
+  "/oauth/authorize", "/oauth/consent", "/privacy", "/s/:token", "/settings/appearance",
+  "/settings/connected-apps", "/settings/notifications", "/settings/sessions", "/signup",
+  "/signup/check-email", "/trip/:tripId", "/trip/:tripId/map", "/trips", "/trips/new"
+ ],
+ "legacyRedirects": ["/admin", "/admin/", "/manage", "/manage/"]
+}

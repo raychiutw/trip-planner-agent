@@ -196,13 +196,12 @@ function createCheckSources(io = {}) {
 
   // ── 數據來源 5b: Route health（B-P6 task 10.3）─────────────────────
   // 驗證主要 SPA routes prod 上回 < 500（Cloudflare Access 的 302 / SPA 200 都算 OK）
+  // 清單必須是 web router 的實際頁面；/manage/、/admin/ 只剩 Navigate 轉址，SPA 對任何路徑都回 200，探測無訊號（tests/unit/daily-check-routes.test.ts 守門）
 
   async function queryRouteHealth() {
     var BASE = 'https://trip-planner-dby.pages.dev';
     var ROUTES = [
       '/',
-      '/manage/',
-      '/admin/',
       '/trip/okinawa-trip-2026-Ray',
       '/explore',
       '/login',
