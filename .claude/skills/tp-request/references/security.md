@@ -18,6 +18,8 @@
 
 ### V2 cutover 新增（migration 0046，DX-C3）
 
+> **/tp-request（受限 session）不可用以下收藏端點**：restrict_trip token 在 API 端就被拒（403），MCP 也沒有對應工具；收藏請使用者在 App 內操作。下列 ✅ 只適用於非受限的使用者 session。
+
 - ✅ GET /api/poi-favorites — 列出當前使用者收藏（auth scope: user_id）
 - ✅ GET /api/poi-favorites/{id} — 取單筆收藏
 - ✅ POST /api/poi-favorites — 新增收藏

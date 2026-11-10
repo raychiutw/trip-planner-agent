@@ -17,7 +17,7 @@ Timeline entry 除了既有欄位，新增兩個與 POI master 有關的 request
 
 **R11 / R12 / R17 的資料來源 Phase 2 後為 `pois` master** — GET /days/:num 回傳 `entry.poi`（JOIN pois）欄位，優先於 entry 本身的 maps/google_rating/location。Phase 3 後 entry 這幾個欄位將 DROP，但 R-rule 檢查邏輯（實體 POI 需 maps 或 lat+lng、需 google_rating）不變。v2.30.15 (migration 0066)：mapcode 已從 pois 整個 DROP — 不再寫入或檢查。
 
-建立 entry 時仍請在 body 附上 maps / lat / lng / google_rating — 會透過 find-or-create 流到 POI master。
+建立 entry 時仍請在 body 附上 maps / lat / lng / google_rating — server 會在 setEntryPoi／addAlternate 時自行 find-or-create 並流到 POI master。
 
 ### R0 JSON 結構與值約束
 
