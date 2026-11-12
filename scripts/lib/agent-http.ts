@@ -7,6 +7,7 @@
  * - 請求帶任何 X-Tripline-* 簽章 header → 只看簽章（錯就 401，不會降級去試舊 Bearer）。
  * - 沒帶簽章 header → 路由 allowLegacy 才試舊 TRIPLINE_API_SECRET（Bearer）。T21 切換後移除。
  * - 兩者都沒有 → 401。
+ * - /health 例外：永遠 200；未驗證只回 { ok: true }，帶有效 trigger 簽章或舊 Bearer 才回完整狀態。
  */
 import { timingSafeEqual } from 'node:crypto';
 import { checkSource } from './ip-allowlist';
@@ -85,7 +86,12 @@ export function createAgentHandler(deps: AgentHandlerDeps) {
     }
 
     if (url.pathname === '/health' && req.method === 'GET') {
-      return Response.json(deps.health());
+      // 未驗證只回 { ok: true }，不洩漏執行狀態（issue #33）；完整狀態需 trigger 簽章或舊 Bearer。
+      // 驗證失敗也只降級成最少欄位、不回 401，存活探針不受影響。
+      const authed = hasSigningHeaders(req)
+        ? verifier.verify(req, 'trigger', '').ok
+        : legacyOk(req);
+      return Response.json(authed ? deps.health() : { ok: true });
     }
 
     const route = deps.routes.find((r) => r.method === req.method && r.path === url.pathname);

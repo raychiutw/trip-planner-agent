@@ -7,7 +7,7 @@
  *
  * Endpoints:
  *   POST /trigger?source=api|job  — 啟動處理迴圈
- *   GET  /health                  — 健康檢查
+ *   GET  /health                  — 健康檢查（未驗證只回 { ok: true }，簽章後才含執行狀態）
  */
 
 import { spawn, spawnSync, type ChildProcessByStdio } from 'child_process';
