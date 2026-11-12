@@ -346,3 +346,82 @@ describe('路由', () => {
     expect((await handler(new Request('http://agent.local/trigger', { method: 'GET' }))).status).toBe(404);
   });
 });
+
+// Caddy 的 handle_path /tripline/api/* 會在轉給 agent 前去掉前綴，但 api 簽的是帶前綴的 TRIPLINE_API_URL path。
+describe('Caddy 去掉 /tripline/api 前綴（#36）', () => {
+  const P = '/tripline/api';
+
+  it('api 簽帶前綴的 /trigger?source=api，agent 收到無前綴 → 200（含 query）', async () => {
+    const { post, calls } = setup();
+    const r = await post('/trigger?source=api', sign({ purpose: 'trigger', key: K_TRIGGER, pathAndQuery: `${P}/trigger?source=api` }));
+    expect(r.status).toBe(200);
+    expect(calls.trigger).toBe(1);
+  });
+
+  it('api 簽帶前綴的 /internal/mail/send（含 body）→ 200', async () => {
+    const { post, calls } = setup();
+    const body = '{"to":"a@example.test"}';
+    const r = await post('/internal/mail/send', sign({ purpose: 'mail', key: K_MAIL, pathAndQuery: `${P}/internal/mail/send`, body }), body);
+    expect(r.status).toBe(200);
+    expect(calls.mail).toBe(1);
+  });
+
+  it('簽無前綴的 path 照舊 → 200', async () => {
+    const { post } = setup();
+    expect((await post('/trigger?source=api', sign({ purpose: 'trigger', key: K_TRIGGER, pathAndQuery: '/trigger?source=api' }))).status).toBe(200);
+  });
+
+  it('其他前綴（/evil/trigger）→ 401', async () => {
+    const { post, calls } = setup();
+    expect((await post('/trigger', sign({ purpose: 'trigger', key: K_TRIGGER, pathAndQuery: '/evil/trigger' }))).status).toBe(401);
+    expect(calls.trigger).toBe(0);
+  });
+
+  it('前綴大小寫不同或重複補兩次 → 401', async () => {
+    const { post } = setup();
+    expect((await post('/trigger', sign({ purpose: 'trigger', key: K_TRIGGER, pathAndQuery: '/Tripline/api/trigger' }))).status).toBe(401);
+    expect((await post('/trigger', sign({ purpose: 'trigger', key: K_TRIGGER, pathAndQuery: `${P}${P}/trigger` }))).status).toBe(401);
+  });
+
+  it('帶前綴簽、但 purpose 標錯（用 mail key 簽 trigger 路由）→ 401', async () => {
+    const { post, calls } = setup();
+    expect((await post('/trigger', sign({ purpose: 'mail', key: K_MAIL, pathAndQuery: `${P}/trigger` }))).status).toBe(401);
+    expect(calls.trigger).toBe(0);
+  });
+
+  it('帶前綴簽、purpose 欄位簽成 mail 但用 trigger key → 401', async () => {
+    const { post } = setup();
+    expect((await post('/trigger', sign({ purpose: 'mail', key: K_TRIGGER, pathAndQuery: `${P}/trigger` }))).status).toBe(401);
+  });
+
+  it('帶前綴簽、body 被改 → 401', async () => {
+    const { post, calls } = setup();
+    const h = sign({ purpose: 'mail', key: K_MAIL, pathAndQuery: `${P}/internal/mail/send`, body: '{"to":"a@example.test"}' });
+    expect((await post('/internal/mail/send', h, '{"to":"evil@example.test"}')).status).toBe(401);
+    expect(calls.mail).toBe(0);
+  });
+
+  it('帶前綴簽、query 被改 → 401', async () => {
+    const { post } = setup();
+    const h = sign({ purpose: 'trigger', key: K_TRIGGER, pathAndQuery: `${P}/trigger?source=api` });
+    expect((await post('/trigger?source=job', h)).status).toBe(401);
+  });
+
+  it('帶前綴簽、過期 → 401', async () => {
+    const { post } = setup({ nowSec: T0 + 1000 });
+    expect((await post('/trigger', sign({ purpose: 'trigger', key: K_TRIGGER, pathAndQuery: `${P}/trigger` }))).status).toBe(401);
+  });
+
+  it('帶前綴簽、重放 → 第二次 401', async () => {
+    const { post, calls } = setup();
+    const h = sign({ purpose: 'trigger', key: K_TRIGGER, pathAndQuery: `${P}/trigger`, nonce: 'n-prefix-replay' });
+    expect((await post('/trigger', h)).status).toBe(200);
+    expect((await post('/trigger', h)).status).toBe(401);
+    expect(calls.trigger).toBe(1);
+  });
+
+  it('帶前綴簽、新舊 key 並存都收', async () => {
+    const { post } = setup({ keys: { trigger: [K_TRIGGER, K_TRIGGER_OLD] } });
+    expect((await post('/trigger', sign({ purpose: 'trigger', key: K_TRIGGER_OLD, pathAndQuery: `${P}/trigger` }))).status).toBe(200);
+  });
+});

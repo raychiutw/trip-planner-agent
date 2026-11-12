@@ -21,6 +21,11 @@ export const SIGNING_HEADERS = {
 } as const;
 
 export const DEFAULT_WINDOW_SEC = 300;
+/**
+ * Caddy 的 `handle_path /tripline/api/*` 會在轉給 agent 前去掉這段前綴，
+ * 但 api 簽的是帶前綴的 TRIPLINE_API_URL path；驗證時兩種 path 都試（來源：Caddyfile）。
+ */
+export const CADDY_STRIPPED_PREFIX = '/tripline/api';
 const MAX_NONCE_LENGTH = 128;
 const MAX_NONCE_ENTRIES = 100_000;
 
@@ -81,21 +86,25 @@ export function createSigningVerifier(config: SigningVerifierConfig) {
     if (keys.length === 0) return { ok: false, reason: 'no_key_configured' };
 
     const u = new URL(req.url);
-    const canonical = [
-      'TRIPLINE-HMAC-V1',
-      purpose,
-      req.method.toUpperCase(),
-      u.pathname + u.search,
-      ts,
-      nonce,
-      createHash('sha256').update(bodyText).digest('hex'),
-    ].join('\n');
+    const bodyHash = createHash('sha256').update(bodyText).digest('hex');
     const provided = Buffer.from(sig, 'hex');
     let matched = false;
-    for (const key of keys) {
-      const expected = createHmac('sha256', key).update(canonical).digest();
-      // 不短路：每把 key 都比，避免從耗時推測是第幾把
-      if (timingSafeEqual(expected, provided)) matched = true;
+    // 收到的 path 與補回前綴的 path；任一種簽章對即通過，其餘規則不變
+    for (const path of [u.pathname, CADDY_STRIPPED_PREFIX + u.pathname]) {
+      const canonical = [
+        'TRIPLINE-HMAC-V1',
+        purpose,
+        req.method.toUpperCase(),
+        path + u.search,
+        ts,
+        nonce,
+        bodyHash,
+      ].join('\n');
+      for (const key of keys) {
+        const expected = createHmac('sha256', key).update(canonical).digest();
+        // 不短路：每把 key 都比，避免從耗時推測是第幾把
+        if (timingSafeEqual(expected, provided)) matched = true;
+      }
     }
     if (!matched) return { ok: false, reason: 'bad_signature' };
 
