@@ -47,7 +47,7 @@ function setup(opts: {
       windowSec: opts.windowSec,
       now: () => (opts.nowSec ?? T0) * 1000,
     },
-    health: () => ({ ok: true }),
+    health: () => ({ ok: true, running: true, runningSkills: ['tp-request'], lastProcessed: 'x', processedCount: 3 }),
     routes: [
       { method: 'POST', path: '/trigger', purpose: 'trigger', allowLegacy: true,
         handle: async () => { calls.trigger++; return Response.json({ triggered: true }); } },
@@ -87,10 +87,31 @@ describe('簽章通過', () => {
     expect((await post('/internal/mint-token', sign({ purpose: 'mint', key: K_MINT, pathAndQuery: '/internal/mint-token' }))).status).toBe(200);
   });
 
-  it('/health 不需簽章', async () => {
+  it('/health 不需簽章，但未驗證只回最少欄位', async () => {
     const { handler } = setup();
     const r = await handler(new Request('http://agent.local/health'));
     expect(r.status).toBe(200);
+    expect(await r.json()).toEqual({ ok: true });
+  });
+
+  it('/health 帶錯簽章 → 仍只回最少欄位（不洩漏、也不 401，免得監控探針誤判掛掉）', async () => {
+    const { handler } = setup();
+    const h = sign({ purpose: 'trigger', key: 'wrong-key-wrong-key-wrong-key-0', method: 'GET', pathAndQuery: '/health' });
+    const r = await handler(new Request('http://agent.local/health', { headers: h }));
+    expect(await r.json()).toEqual({ ok: true });
+  });
+
+  it('/health 帶正確 trigger 簽章 → 回完整執行狀態', async () => {
+    const { handler } = setup();
+    const h = sign({ purpose: 'trigger', key: K_TRIGGER, method: 'GET', pathAndQuery: '/health' });
+    const r = await handler(new Request('http://agent.local/health', { headers: h }));
+    expect(await r.json()).toMatchObject({ runningSkills: ['tp-request'], processedCount: 3 });
+  });
+
+  it('/health 帶舊 Bearer secret → 回完整執行狀態', async () => {
+    const { handler } = setup();
+    const r = await handler(new Request('http://agent.local/health', { headers: { Authorization: `Bearer ${LEGACY}` } }));
+    expect(await r.json()).toMatchObject({ runningSkills: ['tp-request'] });
   });
 });
 
