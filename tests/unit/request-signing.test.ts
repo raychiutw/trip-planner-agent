@@ -101,6 +101,13 @@ describe('簽章通過', () => {
     expect(await r.json()).toEqual({ ok: true });
   });
 
+  it('/health 簽章錯誤但同時帶正確舊 Bearer → 只看簽章，仍只回最少欄位（不降級試 Bearer）', async () => {
+    const { handler } = setup();
+    const h = sign({ purpose: 'trigger', key: 'wrong-key-wrong-key-wrong-key-0', method: 'GET', pathAndQuery: '/health' });
+    const r = await handler(new Request('http://agent.local/health', { headers: { ...h, Authorization: `Bearer ${LEGACY}` } }));
+    expect(await r.json()).toEqual({ ok: true });
+  });
+
   it('/health 帶正確 trigger 簽章 → 回完整執行狀態', async () => {
     const { handler } = setup();
     const h = sign({ purpose: 'trigger', key: K_TRIGGER, method: 'GET', pathAndQuery: '/health' });
